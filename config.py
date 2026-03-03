@@ -15,34 +15,53 @@ def _get(key):
 FMP_API_KEY    = _get("FMP_API_KEY")
 OPENAI_API_KEY = _get("OPENAI_API_KEY")
 
-# Asset universe
-DEFAULT_ASSETS = ["SPY", "QQQ", "GLD", "TLT", "BTC/USD"]
-FMP_ASSETS = ["SPY", "QQQ", "GLD", "TLT"]   # stocks via FMP
-CRYPTO_ASSETS = ["BTCUSD"]                   # crypto via FMP
+# ── Asset Universe ─────────────────────────────────────────────────────────────
+# US Markets
+FMP_ASSETS   = ["SPY", "QQQ", "GLD", "TLT"]
+CRYPTO_ASSETS = ["BTCUSD"]
 
-# Lookback windows
+# Indian Markets — NSE indices & large caps via FMP
+# FMP uses BSE/NSE suffix: e.g. RELIANCE.NS, ^NSEI, ^BSESN
+INDIA_ASSETS = ["^NSEI", "^BSESN", "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS"]
+
+# Display labels for Indian assets
+INDIA_LABELS = {
+    "^NSEI":       "NIFTY 50",
+    "^BSESN":      "SENSEX",
+    "RELIANCE.NS": "Reliance",
+    "TCS.NS":      "TCS",
+    "HDFCBANK.NS": "HDFC Bank",
+    "INFY.NS":     "Infosys",
+}
+
+# All assets grouped
+ASSET_GROUPS = {
+    "🇺🇸 US Markets":    FMP_ASSETS + CRYPTO_ASSETS,
+    "🇮🇳 Indian Markets": INDIA_ASSETS,
+}
+
+# ── Lookback Windows ───────────────────────────────────────────────────────────
 MOMENTUM_LOOKBACK = 20
-VOL_LOOKBACK = 20
-CORR_LOOKBACK = 60
-ZSCORE_LOOKBACK = 60
+VOL_LOOKBACK      = 20
+CORR_LOOKBACK     = 60
+ZSCORE_LOOKBACK   = 60
 
-# Volatility thresholds (annualized)
-VOL_LOW = 0.10
-VOL_NORMAL = 0.18
+# ── Volatility Thresholds (annualized) ────────────────────────────────────────
+VOL_LOW      = 0.10
+VOL_NORMAL   = 0.18
 VOL_ELEVATED = 0.28
-# above ELEVATED → extreme
 
-# Momentum z-score thresholds
-MOMENTUM_UP_THRESHOLD = 1.0
+# ── Momentum Z-Score Thresholds ───────────────────────────────────────────────
+MOMENTUM_UP_THRESHOLD   =  1.0
 MOMENTUM_DOWN_THRESHOLD = -1.0
 
-# Correlation thresholds
+# ── Correlation Thresholds ────────────────────────────────────────────────────
 CORR_HIGH = 0.70
-CORR_LOW = 0.30
+CORR_LOW  = 0.30
 
-# Drawdown thresholds
-DRAWDOWN_WARN = -0.05
+# ── Drawdown Thresholds ───────────────────────────────────────────────────────
+DRAWDOWN_WARN  = -0.05
 DRAWDOWN_ALERT = -0.10
 
-# LLM model
+# ── LLM ───────────────────────────────────────────────────────────────────────
 OPENAI_MODEL = "gpt-4o-mini"

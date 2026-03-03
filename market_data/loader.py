@@ -1,5 +1,6 @@
 """
 Data Layer: Fetch market data from Financial Modeling Prep (stable endpoints).
+Supports US equities, crypto, and Indian markets (NSE/BSE).
 """
 
 import requests
@@ -11,10 +12,11 @@ import config
 
 
 def fetch_daily_ohlcv(symbol: str, days: int = 252) -> pd.DataFrame:
-    """Fetch daily OHLCV from FMP stable endpoint."""
-    end = datetime.today()
+    """Fetch daily OHLCV. Tries FMP stable endpoint, falls back to yfinance for Indian symbols."""
+    end   = datetime.today()
     start = end - timedelta(days=days + 60)
 
+    # FMP stable endpoint
     url = (
         f"https://financialmodelingprep.com/stable/historical-price-eod/full"
         f"?symbol={symbol}"
@@ -26,25 +28,35 @@ def fetch_daily_ohlcv(symbol: str, days: int = 252) -> pd.DataFrame:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-
         records = data if isinstance(data, list) else data.get("historical", [])
-        if not records:
-            st.warning(f"No records returned for {symbol}")
-            return pd.DataFrame()
+        if records:
+            df = pd.DataFrame(records)
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.sort_values("date").set_index("date")
+            df = df.rename(columns={"close": "adj_close"})
+            keep = [c for c in ["open", "high", "low", "adj_close", "volume"] if c in df.columns]
+            df = df[keep].dropna(subset=["adj_close"])
+            if len(df) >= 20:
+                return df.tail(days)
+    except Exception:
+        pass
 
-        df = pd.DataFrame(records)
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.sort_values("date").set_index("date")
-
-        # FMP stable returns: open, high, low, close, volume
-        df = df.rename(columns={"close": "adj_close"})
-        keep = [c for c in ["open", "high", "low", "adj_close", "volume"] if c in df.columns]
-        df = df[keep].dropna(subset=["adj_close"])
-        return df.tail(days)
-
+    # Fallback: yfinance (good for ^NSEI, ^BSESN, .NS symbols)
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="2y")
+        if not df.empty:
+            df.index = df.index.tz_localize(None)
+            df = df.rename(columns={"Close": "adj_close", "Open": "open",
+                                    "High": "high", "Low": "low", "Volume": "volume"})
+            keep = [c for c in ["open", "high", "low", "adj_close", "volume"] if c in df.columns]
+            df = df[keep].dropna(subset=["adj_close"])
+            return df.tail(days)
     except Exception as e:
-        st.error(f"FMP fetch error for {symbol}: {e}")
-        return pd.DataFrame()
+        pass
+
+    return pd.DataFrame()
 
 
 def compute_returns(df: pd.DataFrame, price_col: str = "adj_close") -> pd.Series:
@@ -58,11 +70,12 @@ def compute_drawdown(prices: pd.Series) -> pd.Series:
 
 @st.cache_data(ttl=3600)
 def load_all_assets(days: int = 252) -> dict:
+    all_syms = config.FMP_ASSETS + config.CRYPTO_ASSETS + config.INDIA_ASSETS
     assets = {}
-    for sym in config.FMP_ASSETS + config.CRYPTO_ASSETS:
+    for sym in all_syms:
         df = fetch_daily_ohlcv(sym, days)
         if not df.empty:
-            df["returns"] = compute_returns(df)
+            df["returns"]  = compute_returns(df)
             df["drawdown"] = compute_drawdown(df["adj_close"])
             assets[sym] = df
     return assets
@@ -74,14 +87,14 @@ def get_latest_price_summary(assets: dict) -> dict:
         if df.empty or len(df) < 2:
             continue
         latest = df.iloc[-1]
-        prev = df.iloc[-2]
-        chg = (latest["adj_close"] - prev["adj_close"]) / prev["adj_close"]
+        prev   = df.iloc[-2]
+        chg    = (latest["adj_close"] - prev["adj_close"]) / prev["adj_close"]
         summary[sym] = {
-            "price": latest["adj_close"],
+            "price":      latest["adj_close"],
             "change_pct": chg,
-            "volume": latest.get("volume", 0),
-            "high": latest.get("high", latest["adj_close"]),
-            "low": latest.get("low", latest["adj_close"]),
-            "drawdown": latest["drawdown"],
+            "volume":     latest.get("volume", 0),
+            "high":       latest.get("high", latest["adj_close"]),
+            "low":        latest.get("low",  latest["adj_close"]),
+            "drawdown":   latest["drawdown"],
         }
     return summary
