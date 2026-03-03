@@ -13,6 +13,7 @@ from datetime import datetime
 
 import config
 from clm import render_clm
+from weather_commodities import render_weather_commodities
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
     fetch_market_news, fetch_asset_news, fetch_economic_calendar,
@@ -499,25 +500,29 @@ st.markdown("""
 
 # ── Session State ──────────────────────────────────────────────────────────────
 defaults = {
-    "chat_history": [],
-    "signals": {},
-    "daily_summary": "",
-    "selected_asset": config.FMP_ASSETS[0],
-    "active_group": "🇺🇸 US Markets",
-    "data_loaded": False,
-    "assets_data": {},
-    "news_general": [],
-    "news_asset": {},
-    "econ_calendar": [],
-    "news_loaded": False,
-    "active_tv": "bloomberg",
-    "logged_in": False,
-    "current_user": "",
-    "login_error": "",
-    "page": "eagle",            # ← NEW: page router
-    "clm_contracts": [],        # ← NEW: CLM contract store
-    "clm_extracted": None,      # ← NEW: CLM AI extraction buffer
-    "clm_insight": None,        # ← NEW: CLM AI insight cache
+    "chat_history":    [],
+    "signals":         {},
+    "daily_summary":   "",
+    "selected_asset":  config.FMP_ASSETS[0],
+    "active_group":    "🇺🇸 US Markets",
+    "data_loaded":     False,
+    "assets_data":     {},
+    "news_general":    [],
+    "news_asset":      {},
+    "econ_calendar":   [],
+    "news_loaded":     False,
+    "active_tv":       "bloomberg",
+    "logged_in":       False,
+    "current_user":    "",
+    "login_error":     "",
+    "page":            "eagle",   # page router
+    "clm_contracts":   [],        # CLM contract store
+    "clm_extracted":   None,      # CLM AI extraction buffer
+    "clm_insight":     None,      # CLM AI insight cache
+    "wc_loaded":       False,     # Weather & Commodities data flag
+    "wc_weather":      {},        # Weather cache
+    "wc_commodities":  {},        # Commodity prices cache
+    "wc_insight":      "",        # Weather AI insight
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -594,6 +599,10 @@ if not st.session_state.logged_in:
 # ── PAGE ROUTER ────────────────────────────────────────────────────────────────
 if st.session_state.get("page") == "clm":
     render_clm()
+    st.stop()
+
+if st.session_state.get("page") == "weather":
+    render_weather_commodities()
     st.stop()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -1024,13 +1033,13 @@ with col_news:
 
     st.markdown('<div class="sec-hdr" style="margin-top:16px">Economic Calendar — 7 Days</div>', unsafe_allow_html=True)
     for ev in st.session_state.econ_calendar[:14]:
-        name    = ev.get("event", ev.get("name", ""))
-        date    = str(ev.get("date", ""))[:10]
-        impact  = ev.get("impact", ev.get("importance", ""))
-        actual  = ev.get("actual", "")
-        est     = ev.get("estimate", ev.get("consensus", ""))
-        country = ev.get("country", "")
-        ic      = impact_class(str(impact))
+        name      = ev.get("event", ev.get("name", ""))
+        date      = str(ev.get("date", ""))[:10]
+        impact    = ev.get("impact", ev.get("importance", ""))
+        actual    = ev.get("actual", "")
+        est       = ev.get("estimate", ev.get("consensus", ""))
+        country   = ev.get("country", "")
+        ic        = impact_class(str(impact))
         imp_color = {"high": "#f87171", "medium": "#fbbf24", "low": "#4a6080"}.get(ic, "#4a6080")
         st.markdown(f"""
         <div class="econ-event {ic}">
@@ -1051,7 +1060,7 @@ with col_news:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# COL 4 — Live TV + News Synthesis + Blackwater Legal
+# COL 4 — Live TV + News Synthesis + Tools
 # ══════════════════════════════════════════════════════════════════════════════
 with col_media:
     st.markdown('<div style="padding:12px 8px 0 4px">', unsafe_allow_html=True)
@@ -1066,8 +1075,8 @@ with col_media:
         if st.button("📺 Al Jazeera", use_container_width=True, key="tv_a"):
             st.session_state.active_tv = "aljazeera"
 
-    active = st.session_state.active_tv
-    main_label  = "BLOOMBERG LIVE"  if active == "bloomberg" else "AL JAZEERA LIVE"
+    active      = st.session_state.active_tv
+    main_label  = "BLOOMBERG LIVE"     if active == "bloomberg" else "AL JAZEERA LIVE"
     main_embed  = "https://www.youtube.com/embed/iEpJwprxDdk?autoplay=1&mute=1" if active == "bloomberg" \
                   else "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1"
     other_label = "AL JAZEERA · MUTED" if active == "bloomberg" else "BLOOMBERG · MUTED"
@@ -1111,10 +1120,17 @@ with col_media:
           {synthesis}
         </div>""", unsafe_allow_html=True)
 
-    # ── Blackwater Legal ───────────────────────────────────────────────────────
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    # ── Blackwater Tools ───────────────────────────────────────────────────────
+    st.markdown('<div class="sec-hdr" style="margin-top:10px">Blackwater Tools</div>', unsafe_allow_html=True)
+
+    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
     if st.button("⚖️ Blackwater Legal", use_container_width=True, key="open_clm"):
         st.session_state.page = "clm"
+        st.rerun()
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    if st.button("🌍 Weather Intelligence", use_container_width=True, key="open_weather"):
+        st.session_state.page = "weather"
         st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
