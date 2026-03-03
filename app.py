@@ -380,11 +380,23 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 
-# ── AUTHORIZED USERS ──────────────────────────────────────────────────────────
-USERS = {
-    "merwinsam01":  {"password": "Merwin123",  "display": "Merwin Samuel"},
-    "sherwinsam96": {"password": "Sherwin123", "display": "Sherwin Samuel"},
-}
+# ── AUTHORIZED USERS — loaded from Streamlit secrets, never hardcoded ────────
+def _load_users():
+    """Read users from st.secrets[users] so credentials never appear in code."""
+    display_names = {
+        "merwinsam01":  "Merwin Samuel",
+        "sherwinsam96": "Sherwin Samuel",
+    }
+    try:
+        return {
+            username: {"password": password, "display": display_names.get(username, username)}
+            for username, password in st.secrets["users"].items()
+        }
+    except:
+        # Fallback for local dev — set these in your .env or local secrets.toml
+        return {}
+
+USERS = _load_users()
 
 # ── LOGIN WALL ─────────────────────────────────────────────────────────────────
 if not st.session_state.logged_in:
