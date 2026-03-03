@@ -3,9 +3,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def _get(key):
+    """Read from Streamlit secrets (cloud) or .env (local)."""
+    try:
+        import streamlit as st
+        return st.secrets[key]
+    except:
+        return os.getenv(key, "")
+
 # API Keys
-FMP_API_KEY = os.getenv("FMP_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+FMP_API_KEY    = _get("FMP_API_KEY")
+OPENAI_API_KEY = _get("OPENAI_API_KEY")
 
 # Asset universe
 DEFAULT_ASSETS = ["SPY", "QQQ", "GLD", "TLT", "BTC/USD"]
