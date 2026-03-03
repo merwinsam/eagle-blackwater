@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 import config
+from clm import render_clm
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
     fetch_market_news, fetch_asset_news, fetch_economic_calendar,
@@ -513,6 +514,10 @@ defaults = {
     "logged_in": False,
     "current_user": "",
     "login_error": "",
+    "page": "eagle",            # ← NEW: page router
+    "clm_contracts": [],        # ← NEW: CLM contract store
+    "clm_extracted": None,      # ← NEW: CLM AI extraction buffer
+    "clm_insight": None,        # ← NEW: CLM AI insight cache
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -584,6 +589,11 @@ if not st.session_state.logged_in:
                     font-family:'Space Mono',monospace;letter-spacing:0.1em">
           PRIVATE · AUTHORIZED ACCESS ONLY
         </div>""", unsafe_allow_html=True)
+    st.stop()
+
+# ── PAGE ROUTER ────────────────────────────────────────────────────────────────
+if st.session_state.get("page") == "clm":
+    render_clm()
     st.stop()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -680,7 +690,6 @@ def correlation_heatmap(signals_dict):
     rets = pd.concat({s: signals_dict[s]["_rets"].tail(60) for s in syms}, axis=1).dropna()
     if rets.empty: return None
     corr = rets.corr().round(2)
-    # Use display labels
     labels = [asset_display(s) for s in corr.columns]
     fig = go.Figure(data=go.Heatmap(
         z=corr.values, x=labels, y=labels,
@@ -718,7 +727,6 @@ col_assets, col_charts, col_news, col_media = st.columns([0.9, 2.1, 1.2, 1.3], g
 with col_assets:
     st.markdown('<div style="padding:12px 8px 0">', unsafe_allow_html=True)
 
-    # Refresh + Logout
     rb, lb = st.columns([3, 1])
     with rb:
         refresh = st.button("⟳ Refresh", use_container_width=True)
@@ -738,7 +746,6 @@ with col_assets:
             else:                                     st.session_state[k] = {}
         st.rerun()
 
-    # ── Load market data ───────────────────────────────────────────────────────
     if not st.session_state.data_loaded:
         with st.spinner("Loading market data..."):
             assets_data = load_all_assets(days=252)
@@ -751,11 +758,9 @@ with col_assets:
                 sigs[sym] = compute_signals(sym, df, peer)
             st.session_state.signals     = sigs
             st.session_state.data_loaded = True
-            # default selected to first loaded asset
             if st.session_state.selected_asset not in sigs:
                 st.session_state.selected_asset = next(iter(sigs), config.FMP_ASSETS[0])
 
-    # ── Load news ──────────────────────────────────────────────────────────────
     if not st.session_state.news_loaded and st.session_state.data_loaded:
         with st.spinner("Fetching news..."):
             st.session_state.news_general  = fetch_market_news(limit=30)
@@ -774,21 +779,19 @@ with col_assets:
     signals       = st.session_state.signals
     price_summary = get_latest_price_summary(st.session_state.assets_data) if st.session_state.assets_data else {}
 
-    # ── Asset groups ───────────────────────────────────────────────────────────
     for group_name, group_syms in config.ASSET_GROUPS.items():
         loaded_syms = [s for s in group_syms if s in signals]
         if not loaded_syms:
             continue
         st.markdown(f'<div class="group-label">{group_name}</div>', unsafe_allow_html=True)
         for sym in loaded_syms:
-            sig    = signals.get(sym, {})
-            ps     = price_summary.get(sym, {})
-            price  = ps.get("price", 0)
-            chg    = ps.get("change_pct", 0)
-            is_sel = sym == st.session_state.selected_asset
-            chg_cl = "chg-pos" if chg >= 0 else "chg-neg"
+            ps        = price_summary.get(sym, {})
+            price     = ps.get("price", 0)
+            chg       = ps.get("change_pct", 0)
+            is_sel    = sym == st.session_state.selected_asset
+            chg_cl    = "chg-pos" if chg >= 0 else "chg-neg"
             chg_arrow = "▲" if chg >= 0 else "▼"
-            display = asset_display(sym)
+            display   = asset_display(sym)
 
             if st.button(
                 f"{'● ' if is_sel else '  '}{display}",
@@ -805,14 +808,12 @@ with col_assets:
               <span class="{chg_cl}" style="margin-left:8px">{chg_arrow} {abs(chg*100):.2f}%</span>
             </div>""", unsafe_allow_html=True)
 
-    # ── Correlation heatmap ────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:14px">Correlations</div>', unsafe_allow_html=True)
     if signals:
         fig_c = correlation_heatmap(signals)
         if fig_c:
             st.plotly_chart(fig_c, use_container_width=True, config={"displayModeBar": False})
 
-    # ── Active flags ───────────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr">Active Flags</div>', unsafe_allow_html=True)
     all_flags = [
         (sym, f) for sym, sig in signals.items() if sig
@@ -849,7 +850,6 @@ with col_charts:
         chg_arrow = "▲" if chg >= 0 else "▼"
         display   = asset_display(selected)
 
-        # ── Asset header ──────────────────────────────────────────────────────
         st.markdown(f"""
         <div class="asset-header">
           <div style="flex:1">
@@ -866,7 +866,6 @@ with col_charts:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Scorecard ─────────────────────────────────────────────────────────
         m1, m2, m3, m4, m5 = st.columns(5)
         for col_m, label, value, sub in [
             (m1, "Momentum 20d", fmt_pct(sig.get("momentum_20d")), ""),
@@ -884,19 +883,16 @@ with col_charts:
                   <div class="metric-sub">{sub}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # ── Chart tabs ────────────────────────────────────────────────────────
         t1, t2, t3, t4 = st.tabs(["Price", "Volatility", "Momentum", "Drawdown"])
         with t1: st.plotly_chart(price_chart(sig),    use_container_width=True, config={"displayModeBar": False})
         with t2: st.plotly_chart(vol_chart(sig),      use_container_width=True, config={"displayModeBar": False})
         with t3: st.plotly_chart(momentum_chart(sig), use_container_width=True, config={"displayModeBar": False})
         with t4: st.plotly_chart(drawdown_chart(sig), use_container_width=True, config={"displayModeBar": False})
 
-        # ── Risk flags ────────────────────────────────────────────────────────
         st.markdown(f'<div class="sec-hdr" style="margin-top:12px">Risk Flags — {display}</div>', unsafe_allow_html=True)
         for f in sig.get("risk_flags", []):
             st.markdown(f'<div class="flag-item">{f}</div>', unsafe_allow_html=True)
 
-        # ── Daily summary ─────────────────────────────────────────────────────
         st.markdown('<div class="sec-hdr" style="margin-top:14px">Eagle Daily Summary</div>', unsafe_allow_html=True)
         if st.session_state.daily_summary:
             st.markdown(f'<div class="summary-box">{st.session_state.daily_summary}</div>', unsafe_allow_html=True)
@@ -931,7 +927,6 @@ with col_charts:
 with col_news:
     st.markdown('<div style="padding:12px 8px 0 4px">', unsafe_allow_html=True)
 
-    # ── Eagle Chat ─────────────────────────────────────────────────────────────
     st.markdown("""
     <div class="chat-header">
       <span style="font-size:1rem">🦅</span>
@@ -1008,7 +1003,6 @@ with col_news:
 
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
-    # ── News Feed ──────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr">Latest Headlines</div>', unsafe_allow_html=True)
     asset_headlines = st.session_state.news_asset.get(selected, [])
     all_news = asset_headlines[:4] + [n for n in st.session_state.news_general if n not in asset_headlines]
@@ -1028,7 +1022,6 @@ with col_news:
           <div class="news-meta">{date} · {source}</div>
         </div>""", unsafe_allow_html=True)
 
-    # ── Economic Calendar ──────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:16px">Economic Calendar — 7 Days</div>', unsafe_allow_html=True)
     for ev in st.session_state.econ_calendar[:14]:
         name    = ev.get("event", ev.get("name", ""))
@@ -1058,7 +1051,7 @@ with col_news:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# COL 4 — Live TV + News Synthesis
+# COL 4 — Live TV + News Synthesis + Blackwater Legal
 # ══════════════════════════════════════════════════════════════════════════════
 with col_media:
     st.markdown('<div style="padding:12px 8px 0 4px">', unsafe_allow_html=True)
@@ -1117,5 +1110,11 @@ with col_media:
              color:#8a9bb0;white-space:pre-wrap;margin-top:8px">
           {synthesis}
         </div>""", unsafe_allow_html=True)
+
+    # ── Blackwater Legal ───────────────────────────────────────────────────────
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    if st.button("⚖️ Blackwater Legal", use_container_width=True, key="open_clm"):
+        st.session_state.page = "clm"
+        st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
