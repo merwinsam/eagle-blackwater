@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 .env
 .streamlit/secrets.toml
+__pycache__/
+*.pyc
+eagle_log.csv
+env

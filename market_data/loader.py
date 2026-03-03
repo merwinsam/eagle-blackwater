@@ -1,8 +1,3 @@
-"""
-Data Layer: Fetch market data from Financial Modeling Prep (stable endpoints).
-Supports US equities, crypto, and Indian markets (NSE/BSE).
-"""
-
 import requests
 import pandas as pd
 import numpy as np
@@ -12,11 +7,25 @@ import config
 
 
 def fetch_daily_ohlcv(symbol: str, days: int = 252) -> pd.DataFrame:
-    """Fetch daily OHLCV. Tries FMP stable endpoint, falls back to yfinance for Indian symbols."""
+    """yfinance first (best for Indian indexes), FMP as fallback."""
+    # Strategy 1: yfinance
+    try:
+        import yfinance as yf
+        df = yf.Ticker(symbol).history(period="2y", auto_adjust=True)
+        if not df.empty and len(df) >= 20:
+            df.index = df.index.tz_localize(None)
+            df = df.rename(columns={
+                "Close": "adj_close", "Open": "open",
+                "High": "high", "Low": "low", "Volume": "volume"
+            })
+            keep = [c for c in ["open","high","low","adj_close","volume"] if c in df.columns]
+            return df[keep].dropna(subset=["adj_close"]).tail(days)
+    except Exception:
+        pass
+
+    # Strategy 2: FMP stable endpoint
     end   = datetime.today()
     start = end - timedelta(days=days + 60)
-
-    # FMP stable endpoint
     url = (
         f"https://financialmodelingprep.com/stable/historical-price-eod/full"
         f"?symbol={symbol}"
@@ -34,26 +43,11 @@ def fetch_daily_ohlcv(symbol: str, days: int = 252) -> pd.DataFrame:
             df["date"] = pd.to_datetime(df["date"])
             df = df.sort_values("date").set_index("date")
             df = df.rename(columns={"close": "adj_close"})
-            keep = [c for c in ["open", "high", "low", "adj_close", "volume"] if c in df.columns]
+            keep = [c for c in ["open","high","low","adj_close","volume"] if c in df.columns]
             df = df[keep].dropna(subset=["adj_close"])
             if len(df) >= 20:
                 return df.tail(days)
     except Exception:
-        pass
-
-    # Fallback: yfinance (good for ^NSEI, ^BSESN, .NS symbols)
-    try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period="2y")
-        if not df.empty:
-            df.index = df.index.tz_localize(None)
-            df = df.rename(columns={"Close": "adj_close", "Open": "open",
-                                    "High": "high", "Low": "low", "Volume": "volume"})
-            keep = [c for c in ["open", "high", "low", "adj_close", "volume"] if c in df.columns]
-            df = df[keep].dropna(subset=["adj_close"])
-            return df.tail(days)
-    except Exception as e:
         pass
 
     return pd.DataFrame()
@@ -68,8 +62,9 @@ def compute_drawdown(prices: pd.Series) -> pd.Series:
     return (prices - rolling_max) / rolling_max
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=config.AUTO_REFRESH_SECONDS)
 def load_all_assets(days: int = 252) -> dict:
+    """Load all assets. Cache auto-expires every AUTO_REFRESH_SECONDS (5 min)."""
     all_syms = config.FMP_ASSETS + config.CRYPTO_ASSETS + config.INDIA_ASSETS
     assets = {}
     for sym in all_syms:
