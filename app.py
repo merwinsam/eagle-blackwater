@@ -1,6 +1,5 @@
 """
-Eagle by Blackwater — Market Monitoring & Signal Interpretation System
-US + Indian Markets | 4-column layout | Improved readability
+Blackwater One — Market Intelligence Terminal
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,6 +13,7 @@ from datetime import datetime
 import config
 from clm import render_clm
 from weather_commodities import render_weather_commodities
+from airline_traffic import render_airline_traffic
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
     fetch_market_news, fetch_asset_news, fetch_economic_calendar,
@@ -24,8 +24,8 @@ from reasoning.llm import generate_daily_summary, explain_asset_signal, chat_wit
 from output.logger import log_signals, load_log
 
 st.set_page_config(
-    page_title="Eagle by Blackwater",
-    page_icon="🦅",
+    page_title="Blackwater One",
+    page_icon="◈",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -504,7 +504,7 @@ defaults = {
     "signals":         {},
     "daily_summary":   "",
     "selected_asset":  config.FMP_ASSETS[0],
-    "active_group":    "🇺🇸 US Markets",
+    "active_group":    "\U0001f1fa\U0001f1f8 US Markets",
     "data_loaded":     False,
     "assets_data":     {},
     "news_general":    [],
@@ -515,14 +515,22 @@ defaults = {
     "logged_in":       False,
     "current_user":    "",
     "login_error":     "",
-    "page":            "eagle",   # page router
-    "clm_contracts":   [],        # CLM contract store
-    "clm_extracted":   None,      # CLM AI extraction buffer
-    "clm_insight":     None,      # CLM AI insight cache
-    "wc_loaded":       False,     # Weather & Commodities data flag
-    "wc_weather":      {},        # Weather cache
-    "wc_commodities":  {},        # Commodity prices cache
-    "wc_insight":      "",        # Weather AI insight
+    # page router
+    "page":            "eagle",
+    # CLM
+    "clm_contracts":   [],
+    "clm_extracted":   None,
+    "clm_insight":     None,
+    # Weather
+    "wc_loaded":       False,
+    "wc_weather":      {},
+    "wc_commodities":  {},
+    "wc_insight":      "",
+    # Flight Intelligence
+    "at_loaded":       False,
+    "at_hub_data":     {},
+    "at_insight":      "",
+    "at_selected_hub": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -550,16 +558,16 @@ if not st.session_state.logged_in:
     _, cc, _ = st.columns([1, 1.1, 1])
     with cc:
         st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:3rem;text-align:center;margin-bottom:10px">🦅</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:2.8rem;text-align:center;margin-bottom:10px;color:#e8c97e;font-family:Syne,sans-serif;font-weight:800">◈</div>', unsafe_allow_html=True)
         st.markdown("""
         <div style="text-align:center;margin-bottom:24px">
           <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.8rem;
                       color:#e8c97e;letter-spacing:0.02em;margin-bottom:4px">
-            Eagle by Blackwater
+            Blackwater One
           </div>
           <div style="font-family:'Space Mono',monospace;font-size:0.62rem;color:#4a6080;
                       letter-spacing:0.2em;text-transform:uppercase;margin-bottom:20px">
-            Market Intelligence Platform
+            Market Intelligence Terminal
           </div>
           <div style="font-size:0.85rem;color:#8a9bb0;line-height:1.75;max-width:340px;margin:0 auto 28px">
             Real-time signals across US &amp; Indian markets — momentum, volatility,
@@ -603,6 +611,10 @@ if st.session_state.get("page") == "clm":
 
 if st.session_state.get("page") == "weather":
     render_weather_commodities()
+    st.stop()
+
+if st.session_state.get("page") == "flights":
+    render_airline_traffic()
     st.stop()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -699,6 +711,7 @@ def correlation_heatmap(signals_dict):
     rets = pd.concat({s: signals_dict[s]["_rets"].tail(60) for s in syms}, axis=1).dropna()
     if rets.empty: return None
     corr = rets.corr().round(2)
+    # Use display labels
     labels = [asset_display(s) for s in corr.columns]
     fig = go.Figure(data=go.Heatmap(
         z=corr.values, x=labels, y=labels,
@@ -715,10 +728,10 @@ def correlation_heatmap(signals_dict):
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown(f"""
 <div class="topbar">
-  <span style="font-size:1.3rem">🦅</span>
-  <span class="topbar-logo">Eagle by Blackwater</span>
+  <span style="font-size:1.1rem;color:#e8c97e;font-family:Syne,sans-serif;font-weight:800">◈</span>
+  <span class="topbar-logo">Blackwater One</span>
   <div class="topbar-sep"></div>
-  <span class="topbar-sub">Market Intelligence</span>
+  <span class="topbar-sub">Market Intelligence Terminal</span>
   <div style="flex:1"></div>
   <span class="topbar-time">{datetime.now().strftime("%b %d %Y · %H:%M")}</span>
   <span class="topbar-user">👤 {st.session_state.current_user}</span>
@@ -736,6 +749,7 @@ col_assets, col_charts, col_news, col_media = st.columns([0.9, 2.1, 1.2, 1.3], g
 with col_assets:
     st.markdown('<div style="padding:12px 8px 0">', unsafe_allow_html=True)
 
+    # Refresh + Logout
     rb, lb = st.columns([3, 1])
     with rb:
         refresh = st.button("⟳ Refresh", use_container_width=True)
@@ -755,21 +769,38 @@ with col_assets:
             else:                                     st.session_state[k] = {}
         st.rerun()
 
+    # ── Load market data ───────────────────────────────────────────────────────
     if not st.session_state.data_loaded:
-        with st.spinner("Loading market data..."):
+        with st.spinner("Loading market data…"):
             assets_data = load_all_assets(days=252)
             st.session_state.assets_data = assets_data
         if assets_data:
-            peer_rets = assets_data.get("SPY", pd.DataFrame()).get("returns") if "SPY" in assets_data else None
+            peer_rets = (
+                assets_data["SPY"]["returns"]
+                if "SPY" in assets_data and not assets_data["SPY"].empty
+                else None
+            )
             sigs = {}
             for sym, df in assets_data.items():
                 peer = None if sym in ("SPY", "^NSEI", "^BSESN") else peer_rets
-                sigs[sym] = compute_signals(sym, df, peer)
+                try:
+                    s = compute_signals(sym, df, peer)
+                    if s:
+                        sigs[sym] = s
+                except Exception as e:
+                    print(f"[signals] {sym} failed: {e}")
             st.session_state.signals     = sigs
             st.session_state.data_loaded = True
             if st.session_state.selected_asset not in sigs:
                 st.session_state.selected_asset = next(iter(sigs), config.FMP_ASSETS[0])
+        else:
+            # Data failed to load — show actionable error
+            st.error(
+                "⚠️ Market data failed to load. "
+                "Check your FMP API key in Streamlit secrets, then click ⟳ Refresh."
+            )
 
+    # ── Load news ──────────────────────────────────────────────────────────────
     if not st.session_state.news_loaded and st.session_state.data_loaded:
         with st.spinner("Fetching news..."):
             st.session_state.news_general  = fetch_market_news(limit=30)
@@ -788,19 +819,21 @@ with col_assets:
     signals       = st.session_state.signals
     price_summary = get_latest_price_summary(st.session_state.assets_data) if st.session_state.assets_data else {}
 
+    # ── Asset groups ───────────────────────────────────────────────────────────
     for group_name, group_syms in config.ASSET_GROUPS.items():
         loaded_syms = [s for s in group_syms if s in signals]
         if not loaded_syms:
             continue
         st.markdown(f'<div class="group-label">{group_name}</div>', unsafe_allow_html=True)
         for sym in loaded_syms:
-            ps        = price_summary.get(sym, {})
-            price     = ps.get("price", 0)
-            chg       = ps.get("change_pct", 0)
-            is_sel    = sym == st.session_state.selected_asset
-            chg_cl    = "chg-pos" if chg >= 0 else "chg-neg"
+            sig    = signals.get(sym, {})
+            ps     = price_summary.get(sym, {})
+            price  = ps.get("price", 0)
+            chg    = ps.get("change_pct", 0)
+            is_sel = sym == st.session_state.selected_asset
+            chg_cl = "chg-pos" if chg >= 0 else "chg-neg"
             chg_arrow = "▲" if chg >= 0 else "▼"
-            display   = asset_display(sym)
+            display = asset_display(sym)
 
             if st.button(
                 f"{'● ' if is_sel else '  '}{display}",
@@ -817,12 +850,14 @@ with col_assets:
               <span class="{chg_cl}" style="margin-left:8px">{chg_arrow} {abs(chg*100):.2f}%</span>
             </div>""", unsafe_allow_html=True)
 
+    # ── Correlation heatmap ────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:14px">Correlations</div>', unsafe_allow_html=True)
     if signals:
         fig_c = correlation_heatmap(signals)
         if fig_c:
             st.plotly_chart(fig_c, use_container_width=True, config={"displayModeBar": False})
 
+    # ── Active flags ───────────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr">Active Flags</div>', unsafe_allow_html=True)
     all_flags = [
         (sym, f) for sym, sig in signals.items() if sig
@@ -859,6 +894,7 @@ with col_charts:
         chg_arrow = "▲" if chg >= 0 else "▼"
         display   = asset_display(selected)
 
+        # ── Asset header ──────────────────────────────────────────────────────
         st.markdown(f"""
         <div class="asset-header">
           <div style="flex:1">
@@ -875,6 +911,7 @@ with col_charts:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── Scorecard ─────────────────────────────────────────────────────────
         m1, m2, m3, m4, m5 = st.columns(5)
         for col_m, label, value, sub in [
             (m1, "Momentum 20d", fmt_pct(sig.get("momentum_20d")), ""),
@@ -892,16 +929,19 @@ with col_charts:
                   <div class="metric-sub">{sub}</div>
                 </div>""", unsafe_allow_html=True)
 
+        # ── Chart tabs ────────────────────────────────────────────────────────
         t1, t2, t3, t4 = st.tabs(["Price", "Volatility", "Momentum", "Drawdown"])
         with t1: st.plotly_chart(price_chart(sig),    use_container_width=True, config={"displayModeBar": False})
         with t2: st.plotly_chart(vol_chart(sig),      use_container_width=True, config={"displayModeBar": False})
         with t3: st.plotly_chart(momentum_chart(sig), use_container_width=True, config={"displayModeBar": False})
         with t4: st.plotly_chart(drawdown_chart(sig), use_container_width=True, config={"displayModeBar": False})
 
+        # ── Risk flags ────────────────────────────────────────────────────────
         st.markdown(f'<div class="sec-hdr" style="margin-top:12px">Risk Flags — {display}</div>', unsafe_allow_html=True)
         for f in sig.get("risk_flags", []):
             st.markdown(f'<div class="flag-item">{f}</div>', unsafe_allow_html=True)
 
+        # ── Daily summary ─────────────────────────────────────────────────────
         st.markdown('<div class="sec-hdr" style="margin-top:14px">Eagle Daily Summary</div>', unsafe_allow_html=True)
         if st.session_state.daily_summary:
             st.markdown(f'<div class="summary-box">{st.session_state.daily_summary}</div>', unsafe_allow_html=True)
@@ -936,6 +976,7 @@ with col_charts:
 with col_news:
     st.markdown('<div style="padding:12px 8px 0 4px">', unsafe_allow_html=True)
 
+    # ── Eagle Chat ─────────────────────────────────────────────────────────────
     st.markdown("""
     <div class="chat-header">
       <span style="font-size:1rem">🦅</span>
@@ -1012,6 +1053,7 @@ with col_news:
 
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
+    # ── News Feed ──────────────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr">Latest Headlines</div>', unsafe_allow_html=True)
     asset_headlines = st.session_state.news_asset.get(selected, [])
     all_news = asset_headlines[:4] + [n for n in st.session_state.news_general if n not in asset_headlines]
@@ -1031,15 +1073,16 @@ with col_news:
           <div class="news-meta">{date} · {source}</div>
         </div>""", unsafe_allow_html=True)
 
+    # ── Economic Calendar ──────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:16px">Economic Calendar — 7 Days</div>', unsafe_allow_html=True)
     for ev in st.session_state.econ_calendar[:14]:
-        name      = ev.get("event", ev.get("name", ""))
-        date      = str(ev.get("date", ""))[:10]
-        impact    = ev.get("impact", ev.get("importance", ""))
-        actual    = ev.get("actual", "")
-        est       = ev.get("estimate", ev.get("consensus", ""))
-        country   = ev.get("country", "")
-        ic        = impact_class(str(impact))
+        name    = ev.get("event", ev.get("name", ""))
+        date    = str(ev.get("date", ""))[:10]
+        impact  = ev.get("impact", ev.get("importance", ""))
+        actual  = ev.get("actual", "")
+        est     = ev.get("estimate", ev.get("consensus", ""))
+        country = ev.get("country", "")
+        ic      = impact_class(str(impact))
         imp_color = {"high": "#f87171", "medium": "#fbbf24", "low": "#4a6080"}.get(ic, "#4a6080")
         st.markdown(f"""
         <div class="econ-event {ic}">
@@ -1057,10 +1100,11 @@ with col_news:
     if not st.session_state.econ_calendar:
         st.caption("No upcoming events loaded.")
 
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# COL 4 — Live TV + News Synthesis + Tools
+# COL 4 — Live TV + News Synthesis + Blackwater Tools
 # ══════════════════════════════════════════════════════════════════════════════
 with col_media:
     st.markdown('<div style="padding:12px 8px 0 4px">', unsafe_allow_html=True)
@@ -1077,33 +1121,28 @@ with col_media:
 
     active      = st.session_state.active_tv
     main_label  = "BLOOMBERG LIVE"     if active == "bloomberg" else "AL JAZEERA LIVE"
-    main_embed  = "https://www.youtube.com/embed/iEpJwprxDdk?autoplay=1&mute=1" if active == "bloomberg" \
-                  else "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1"
+    main_embed  = ("https://www.youtube.com/embed/iEpJwprxDdk?autoplay=1&mute=1" if active == "bloomberg"
+                   else "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1")
     other_label = "AL JAZEERA · MUTED" if active == "bloomberg" else "BLOOMBERG · MUTED"
-    other_embed = "https://www.youtube.com/embed/gCNeDWCI0vo?mute=1" if active == "bloomberg" \
-                  else "https://www.youtube.com/embed/iEpJwprxDdk?mute=1"
+    other_embed = ("https://www.youtube.com/embed/gCNeDWCI0vo?mute=1" if active == "bloomberg"
+                   else "https://www.youtube.com/embed/iEpJwprxDdk?mute=1")
 
-    st.markdown(f"""
-    <div class="tv-panel" style="margin-top:6px">
-      <div class="tv-label">
-        <span class="live-dot"></span>{main_label}
-      </div>
-      <iframe src="{main_embed}" height="195"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen></iframe>
-    </div>
-    <div class="tv-panel">
-      <div class="tv-label" style="color:#4a6080">
-        <span style="width:5px;height:5px;border-radius:50%;background:#4a6080;display:inline-block"></span>
-        {other_label}
-      </div>
-      <iframe src="{other_embed}" height="145"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen></iframe>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="tv-panel" style="margin-top:6px">'
+        f'<div class="tv-label"><span class="live-dot"></span>{main_label}</div>'
+        f'<iframe src="{main_embed}" height="195"'
+        ' allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"'
+        ' allowfullscreen></iframe></div>'
+        f'<div class="tv-panel">'
+        f'<div class="tv-label" style="color:#4a6080">'
+        '<span style="width:5px;height:5px;border-radius:50%;background:#4a6080;display:inline-block"></span>'
+        f'{other_label}</div>'
+        f'<iframe src="{other_embed}" height="145"'
+        ' allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"'
+        ' allowfullscreen></iframe></div>',
+        unsafe_allow_html=True,
+    )
 
-    # ── News × Signal Synthesis ────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:10px">News × Signal Link</div>', unsafe_allow_html=True)
     if st.button("🔗 Connect News to Signals", use_container_width=True, key="synth_btn"):
         news_fmt = format_news_for_llm(
@@ -1113,14 +1152,14 @@ with col_media:
         st.session_state.chat_history.append(
             {"role": "assistant", "content": f"**News synthesis for {asset_display(selected)}:**\n\n{synthesis}"}
         )
-        st.markdown(f"""
-        <div style="background:#131920;border:1px solid #1e2a38;border-left:3px solid #a78bfa;
-             border-radius:0 10px 10px 0;padding:14px 16px;font-size:0.78rem;line-height:1.75;
-             color:#8a9bb0;white-space:pre-wrap;margin-top:8px">
-          {synthesis}
-        </div>""", unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="background:#131920;border:1px solid #1e2a38;border-left:3px solid #a78bfa;'
+            'border-radius:0 10px 10px 0;padding:14px 16px;font-size:0.78rem;line-height:1.75;'
+            f'color:#8a9bb0;white-space:pre-wrap;margin-top:8px">{synthesis}</div>',
+            unsafe_allow_html=True,
+        )
 
-    # ── Blackwater Tools ───────────────────────────────────────────────────────
+    # ── Blackwater Tools ────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr" style="margin-top:10px">Blackwater Tools</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
@@ -1131,6 +1170,11 @@ with col_media:
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     if st.button("🌍 Weather Intelligence", use_container_width=True, key="open_weather"):
         st.session_state.page = "weather"
+        st.rerun()
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    if st.button("✈️ Flight Intelligence", use_container_width=True, key="open_flights"):
+        st.session_state.page = "flights"
         st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)

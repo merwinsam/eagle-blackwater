@@ -524,7 +524,7 @@ def render_weather_commodities():
     st.markdown(f"""
     <div class="wc-header">
       <span style="font-size:1.1rem">🌍</span>
-      <span class="wc-logo">Blackwater Weather Intelligence</span>
+      <span class="wc-logo">Blackwater One · Weather Intelligence</span>
       <div class="wc-sep"></div>
       <span class="wc-sub">Commodity Futures · Weather Map</span>
       <div style="flex:1"></div>
@@ -535,9 +535,13 @@ def render_weather_commodities():
     <div style="height:14px"></div>
     """, unsafe_allow_html=True)
 
-    # Refresh
-    rc1, _ = st.columns([1, 6])
+    # Refresh + Back nav at top
+    rc1, rc2, _ = st.columns([1, 1, 5])
     with rc1:
+        if st.button("← Back to Blackwater One", key="wc_back_top", use_container_width=True):
+            st.session_state.page = "eagle"
+            st.rerun()
+    with rc2:
         if st.button("⟳ Refresh", use_container_width=True, key="wc_refresh"):
             fetch_weather.clear()
             fetch_all_commodities.clear()
@@ -847,6 +851,3 @@ def render_weather_commodities():
             )
 
     st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-    if st.button("← Back to Eagle", key="wc_back"):
-        st.session_state.page = "eagle"
-        st.rerun()
