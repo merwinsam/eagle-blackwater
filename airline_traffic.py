@@ -738,6 +738,27 @@ def render_airline_traffic():
                 st.session_state.pop(k, None)
             st.rerun()
 
+    # ── ATI Explainer ─────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="background:#0b0e12;border:1px solid #1a2330;border-left:3px solid #e8c97e;
+                border-radius:0 6px 6px 0;padding:16px 20px;margin-bottom:16px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:#e8c97e;
+                  text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px">
+        What This Page Tells You
+      </div>
+      <div style="font-size:0.88rem;color:#aabccc;line-height:1.85;font-family:'Inter',sans-serif">
+        The <b style="color:#f0f4f8">Aviation Activity Index (ATI)</b> tracks real-time flight volumes
+        across 27 strategically chosen airports — grouped into six economic sectors:
+        <b style="color:#f0f4f8">Energy, Technology, Finance, Tourism, Manufacturing</b> and <b style="color:#f0f4f8">Resources</b>.
+        Spikes in aviation activity at sector-specific hubs often precede or confirm
+        macroeconomic moves — an energy sector surge in Houston or Doha may signal supply chain
+        tightening, while a tech corridor uptick across San Jose and Taipei can reflect
+        accelerating demand cycles. Use ATI as a <b style="color:#f0f4f8">leading non-financial indicator</b>
+        to cross-reference your market signals.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── Load data — only refetch if not loaded or older than 1 hour ──────────
     iata_list  = [ap["iata"] for ap in AIRPORTS]
     cache_age  = time.time() - st.session_state.get("ati_loaded_at", 0)

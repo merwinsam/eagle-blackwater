@@ -73,9 +73,8 @@ Please provide:
 1. A 2-3 sentence market regime summary (what is the overall state?).
 2. Up to 4 key risk observations across all assets.
 3. Up to 3 news items or macro events most relevant to the current signals — explain the connection.
-4. Up to 2 questions a risk manager should be asking right now.
 
-Do not predict prices. Do not recommend trades. Only reference news items from the list above."""
+Do not predict prices. Do not recommend trades. Do not include questions. Only reference news items from the list above."""
 
     try:
         resp = get_client().chat.completions.create(
@@ -106,9 +105,8 @@ Please:
 1. Restate the regime in 2 sentences.
 2. List up to 3 risk observations specific to this asset.
 3. Identify 1-2 news items above that are relevant to this asset's current signals (if any).
-4. Suggest 1-2 questions the analyst should investigate.
 
-Be specific. Do not propose trades. Only reference news from the list provided."""
+Be specific. Do not propose trades. Do not include questions. Only reference news from the list provided."""
 
     try:
         resp = get_client().chat.completions.create(

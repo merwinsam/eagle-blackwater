@@ -14,6 +14,7 @@ import config
 from clm import render_clm
 from weather_commodities import render_weather_commodities
 from airline_traffic import render_airline_traffic
+from geoint import render_geoint
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
     fetch_market_news, fetch_asset_news, fetch_economic_calendar,
@@ -23,9 +24,12 @@ from signals.engine import compute_signals
 from reasoning.llm import generate_daily_summary, explain_asset_signal, chat_with_agent
 from output.logger import log_signals, load_log
 
+import base64 as _b64_early, os as _os_early
+_logo_path_early = _os_early.path.join(_os_early.path.dirname(_os_early.path.abspath(__file__)), "logo.jpeg")
+
 st.set_page_config(
     page_title="Blackwater One",
-    page_icon="◈",
+    page_icon=_logo_path_early if _os_early.path.exists(_logo_path_early) else "♞",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -35,103 +39,138 @@ st.set_page_config(
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
 
   :root {
-    --bg-base:    #090b0e;
-    --bg-panel:   #0e1218;
-    --bg-card:    #131920;
-    --bg-hover:   #1a2230;
-    --border:     #1e2a38;
-    --border-mid: #2a3a4e;
+    --bg-base:    #060809;
+    --bg-panel:   #0b0e12;
+    --bg-card:    #101418;
+    --bg-hover:   #161c24;
+    --border:     #1a2330;
+    --border-mid: #253040;
     --gold:       #e8c97e;
     --gold-dim:   #b89a52;
-    --gold-glow:  rgba(232,201,126,0.12);
-    --text-pri:   #eef2f7;
-    --text-sec:   #8a9bb0;
-    --text-dim:   #4a6080;
-    --green:      #4ade80;
-    --red:        #f87171;
-    --amber:      #fbbf24;
-    --blue:       #60a5fa;
-    --purple:     #a78bfa;
-    --orange:     #fb923c;
+    --gold-glow:  rgba(232,201,126,0.10);
+    --text-pri:   #f0f4f8;
+    --text-sec:   #7a8fa8;
+    --text-dim:   #3d5570;
+    --green:      #00d084;
+    --red:        #ff4d6a;
+    --amber:      #f5a623;
+    --blue:       #4f9eff;
+    --purple:     #9b7ff0;
+    --orange:     #ff7c3a;
   }
 
   html, body, [class*="css"] {
     font-family: 'Inter', sans-serif !important;
     background: var(--bg-base) !important;
     color: var(--text-pri) !important;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.5;
   }
   #MainMenu, header, footer { display:none !important; }
   .block-container { padding:0 !important; max-width:100% !important; }
   .stApp { background: var(--bg-base); }
-  [data-testid="column"] { padding: 0 4px !important; }
+  [data-testid="column"] { padding: 0 3px !important; }
 
-  /* ── TOP BAR ── */
+  /* ── TOP BAR — Bloomberg-style black bar ── */
   .topbar {
-    background: var(--bg-panel);
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    height: 52px;
+    background: #000000;
+    border-bottom: 2px solid var(--gold);
+    padding: 0 20px;
+    height: 48px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: 0 1px 0 var(--border);
+    gap: 14px;
   }
   .topbar-logo {
     font-family: 'Syne', sans-serif;
     font-weight: 800;
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     color: var(--gold);
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .topbar-sep {
-    width: 1px; height: 24px;
-    background: var(--border-mid);
+    width: 1px; height: 22px;
+    background: #2a3040;
   }
   .topbar-sub {
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     color: var(--text-dim);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
     font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+  }
+  .topbar-pill {
+    background: rgba(0,208,132,0.12);
+    border: 1px solid rgba(0,208,132,0.25);
+    border-radius: 3px;
+    padding: 2px 10px;
+    font-size: 0.62rem;
+    color: var(--green);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
   .topbar-user {
     background: var(--gold-glow);
-    border: 1px solid rgba(232,201,126,0.20);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 0.72rem;
+    border: 1px solid rgba(232,201,126,0.15);
+    border-radius: 3px;
+    padding: 3px 12px;
+    font-size: 0.65rem;
     color: var(--gold);
     font-family: 'Space Mono', monospace;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .topbar-time {
     font-family: 'Space Mono', monospace;
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .topbar-logo-img {
+    height: 28px;
+    width: 28px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
   }
 
-  /* ── SECTION HEADERS ── */
+  /* ── SECTION HEADERS — Bloomberg ticker-bar style ── */
   .sec-hdr {
     font-family: 'Space Mono', monospace;
-    font-size: 0.65rem;
+    font-size: 0.58rem;
     font-weight: 700;
-    color: var(--text-dim);
+    color: var(--gold);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    padding: 10px 0 6px;
+    letter-spacing: 0.20em;
+    padding: 8px 0 5px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sec-hdr::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 10px;
+    background: var(--gold);
+    border-radius: 1px;
+    flex-shrink: 0;
   }
   .group-label {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--text-sec);
-    padding: 8px 0 4px;
-    letter-spacing: 0.05em;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    padding: 6px 0 3px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
   }
 
   /* ── ASSET ROWS ── */
@@ -139,50 +178,52 @@ st.markdown("""
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 7px 10px;
-    border-radius: 7px;
-    margin-bottom: 3px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    margin-bottom: 2px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.1s;
     border: 1px solid transparent;
+    border-left: 2px solid transparent;
   }
-  .asset-item:hover { background: var(--bg-hover); border-color: var(--border); }
-  .asset-item.sel   { background: var(--bg-hover); border-color: rgba(232,201,126,0.25); }
-  .asset-sym  { font-size: 0.82rem; font-weight: 600; color: var(--text-pri); }
-  .asset-name { font-size: 0.66rem; color: var(--text-dim); margin-top: 1px; }
-  .asset-price-sm { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--text-pri); text-align:right; }
-  .chg-pos { color: var(--green); font-size: 0.68rem; }
-  .chg-neg { color: var(--red);   font-size: 0.68rem; }
+  .asset-item:hover { background: var(--bg-hover); border-left-color: var(--text-dim); }
+  .asset-item.sel   { background: var(--bg-hover); border-left-color: var(--gold); }
+  .asset-sym  { font-size: 0.78rem; font-weight: 600; color: var(--text-pri); font-family: 'Space Mono', monospace; }
+  .asset-name { font-size: 0.60rem; color: var(--text-dim); margin-top: 1px; }
+  .asset-price-sm { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--text-pri); text-align:right; }
+  .chg-pos { color: var(--green); font-size: 0.64rem; font-family: 'Space Mono', monospace; }
+  .chg-neg { color: var(--red);   font-size: 0.64rem; font-family: 'Space Mono', monospace; }
 
-  /* ── METRIC CARDS ── */
+  /* ── METRIC CARDS — terminal data box style ── */
   .metric-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    transition: border-color 0.2s, background 0.2s;
+    border-top: 2px solid var(--border-mid);
+    border-radius: 0;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    transition: border-top-color 0.15s;
   }
-  .metric-card:hover { border-color: var(--border-mid); background: var(--bg-hover); }
+  .metric-card:hover { border-top-color: var(--gold); }
   .metric-label {
     font-family: 'Space Mono', monospace;
-    font-size: 0.6rem;
+    font-size: 0.54rem;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 6px;
+    letter-spacing: 0.14em;
+    margin-bottom: 5px;
   }
   .metric-value {
     font-family: 'Space Mono', monospace;
-    font-size: 1.1rem;
+    font-size: 1.0rem;
     font-weight: 700;
     color: var(--text-pri);
     line-height: 1.1;
   }
   .metric-sub {
-    font-size: 0.66rem;
+    font-size: 0.62rem;
     color: var(--text-sec);
-    margin-top: 4px;
+    margin-top: 3px;
   }
   .vol-low      { color: var(--green)  !important; }
   .vol-normal   { color: var(--text-sec) !important; }
@@ -194,58 +235,64 @@ st.markdown("""
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: capitalize;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
   }
-  .r-calm-uptrend     { background:rgba(74,222,128,0.10); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
-  .r-volatile-uptrend { background:rgba(251,191,36,0.10); color:#fbbf24; border:1px solid rgba(251,191,36,0.25); }
-  .r-stress-selloff   { background:rgba(248,113,113,0.12); color:#f87171; border:1px solid rgba(248,113,113,0.30); }
-  .r-quiet-decline    { background:rgba(167,139,250,0.10); color:#a78bfa; border:1px solid rgba(167,139,250,0.25); }
-  .r-volatile-chop    { background:rgba(251,146,60,0.10);  color:#fb923c; border:1px solid rgba(251,146,60,0.25); }
-  .r-mixed            { background:rgba(148,163,184,0.08); color:#94a3b8; border:1px solid rgba(148,163,184,0.20); }
+  .r-calm-uptrend     { background:rgba(0,208,132,0.10);  color:#00d084; border:1px solid rgba(0,208,132,0.25); }
+  .r-volatile-uptrend { background:rgba(245,166,35,0.10); color:#f5a623; border:1px solid rgba(245,166,35,0.25); }
+  .r-stress-selloff   { background:rgba(255,77,106,0.12); color:#ff4d6a; border:1px solid rgba(255,77,106,0.30); }
+  .r-quiet-decline    { background:rgba(155,127,240,0.10);color:#9b7ff0; border:1px solid rgba(155,127,240,0.25); }
+  .r-volatile-chop    { background:rgba(255,124,58,0.10); color:#ff7c3a; border:1px solid rgba(255,124,58,0.25); }
+  .r-mixed            { background:rgba(122,143,168,0.08);color:#7a8fa8; border:1px solid rgba(122,143,168,0.20); }
 
   /* ── FLAG ITEMS ── */
   .flag-item {
-    font-size: 0.75rem;
-    padding: 7px 11px;
-    border-radius: 7px;
-    margin-bottom: 5px;
+    font-size: 0.72rem;
+    padding: 6px 10px;
+    border-radius: 2px;
+    margin-bottom: 4px;
     background: var(--bg-card);
     border: 1px solid var(--border);
+    border-left: 2px solid var(--text-dim);
     color: var(--text-sec);
     line-height: 1.45;
   }
 
   /* ── ASSET HEADER BOX ── */
   .asset-header {
-    background: var(--bg-panel);
+    background: #000000;
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 14px;
+    border-left: 3px solid var(--gold);
+    border-radius: 0;
+    padding: 12px 16px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 18px;
   }
   .asset-sym-lg {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 1.8rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 1.5rem;
     color: var(--gold);
     line-height: 1;
+    letter-spacing: 0.04em;
   }
   .asset-name-lg {
-    font-size: 0.75rem;
+    font-size: 0.66rem;
     color: var(--text-dim);
-    margin-top: 3px;
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.06em;
   }
   .asset-price-lg {
     font-family: 'Space Mono', monospace;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: var(--text-pri);
   }
@@ -255,179 +302,199 @@ st.markdown("""
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-left: 3px solid var(--gold);
-    border-radius: 0 10px 10px 0;
-    padding: 16px 18px;
-    font-size: 0.82rem;
-    line-height: 1.75;
+    border-radius: 0;
+    padding: 14px 16px;
+    font-size: 0.78rem;
+    line-height: 1.8;
     color: var(--text-sec);
     white-space: pre-wrap;
     margin-top: 4px;
+    font-family: 'Inter', sans-serif;
   }
 
   /* ── NEWS CARDS ── */
   .news-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 13px;
-    margin-bottom: 7px;
-    transition: border-color 0.15s, background 0.15s;
+    border-radius: 0;
+    border-left: 2px solid transparent;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    transition: border-left-color 0.15s, background 0.12s;
   }
-  .news-card:hover { border-color: var(--border-mid); background: var(--bg-hover); }
+  .news-card:hover { border-left-color: var(--gold); background: var(--bg-hover); }
   .news-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-pri);
-    line-height: 1.45;
-    margin-bottom: 5px;
+    line-height: 1.4;
+    margin-bottom: 4px;
   }
   .news-title a { color: var(--text-pri) !important; text-decoration: none; }
   .news-title a:hover { color: var(--gold) !important; }
-  .news-meta  { font-size: 0.65rem; color: var(--text-dim); font-family: 'Space Mono', monospace; }
+  .news-meta  { font-size: 0.60rem; color: var(--text-dim); font-family: 'Space Mono', monospace; }
   .news-tag {
     display: inline-block;
-    font-size: 0.55rem;
+    font-size: 0.50rem;
     font-family: 'Space Mono', monospace;
-    padding: 1px 6px;
-    border-radius: 4px;
+    padding: 1px 5px;
+    border-radius: 1px;
     margin-left: 6px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     vertical-align: middle;
   }
-  .tag-political { background:rgba(167,139,250,0.15); color:#a78bfa; }
-  .tag-macro     { background:rgba(251,191,36,0.15);  color:#fbbf24; }
-  .tag-market    { background:rgba(74,222,128,0.12);  color:#4ade80; }
-  .tag-earnings  { background:rgba(96,165,250,0.15);  color:#60a5fa; }
-  .tag-geopolit  { background:rgba(248,113,113,0.15); color:#f87171; }
-  .tag-india     { background:rgba(251,146,60,0.15);  color:#fb923c; }
+  .tag-political { background:rgba(155,127,240,0.15); color:#9b7ff0; }
+  .tag-macro     { background:rgba(245,166,35,0.15);  color:#f5a623; }
+  .tag-market    { background:rgba(0,208,132,0.12);   color:#00d084; }
+  .tag-earnings  { background:rgba(79,158,255,0.15);  color:#4f9eff; }
+  .tag-geopolit  { background:rgba(255,77,106,0.15);  color:#ff4d6a; }
+  .tag-india     { background:rgba(255,124,58,0.15);  color:#ff7c3a; }
 
   /* ── ECON CALENDAR ── */
   .econ-event {
-    padding: 8px 10px 8px 13px;
+    padding: 7px 10px 7px 12px;
     border-left: 2px solid var(--border-mid);
-    margin-bottom: 6px;
-    font-size: 0.74rem;
+    margin-bottom: 5px;
+    font-size: 0.70rem;
     color: var(--text-sec);
     background: var(--bg-card);
-    border-radius: 0 7px 7px 0;
+    border-radius: 0;
     line-height: 1.4;
   }
-  .econ-event.high   { border-left-color: #f87171; }
-  .econ-event.medium { border-left-color: #fbbf24; }
+  .econ-event.high   { border-left-color: #ff4d6a; }
+  .econ-event.medium { border-left-color: #f5a623; }
 
   /* ── CHAT ── */
   .chat-header {
-    padding: 12px 14px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
+    background: #000;
   }
   .chat-header-title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-pri);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gold);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
   }
   .chat-header-sub {
-    font-size: 0.65rem;
+    font-size: 0.60rem;
     color: var(--text-dim);
     font-family: 'Space Mono', monospace;
   }
   .chat-msg-user {
     background: var(--bg-hover);
     border: 1px solid var(--border-mid);
-    border-radius: 10px 10px 4px 10px;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
+    border-radius: 0 6px 6px 6px;
+    padding: 9px 13px;
+    margin-bottom: 6px;
+    font-size: 0.76rem;
     color: var(--text-pri);
-    line-height: 1.5;
+    line-height: 1.55;
   }
   .chat-msg-eagle {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-left: 3px solid var(--gold);
-    border-radius: 4px 10px 10px 10px;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
+    border-radius: 0 6px 6px 6px;
+    padding: 9px 13px;
+    margin-bottom: 6px;
+    font-size: 0.76rem;
     color: var(--text-sec);
     line-height: 1.65;
   }
   .chat-label {
     font-family: 'Space Mono', monospace;
-    font-size: 0.58rem;
+    font-size: 0.54rem;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 5px;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
   }
   .chat-label-eagle { color: var(--gold-dim) !important; }
 
   /* ── TV PANEL ── */
   .tv-panel {
-    background: var(--bg-panel);
+    background: #000;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0;
     overflow: hidden;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .tv-label {
     font-family: 'Space Mono', monospace;
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    padding: 7px 12px;
-    background: var(--bg-card);
+    letter-spacing: 0.14em;
+    padding: 6px 10px;
+    background: #000;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 7px;
   }
   .live-dot {
-    width: 6px; height: 6px;
+    width: 5px; height: 5px;
     border-radius: 50%;
-    background: #f87171;
+    background: #ff4d6a;
     display: inline-block;
     animation: livepulse 1.5s ease-in-out infinite;
   }
-  @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
   .tv-panel iframe { display:block; width:100%; border:none; }
 
-  /* ── BUTTONS ── */
+  /* ── BUTTONS — flat terminal style ── */
   .stButton button {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
     color: var(--text-sec) !important;
-    font-size: 0.75rem !important;
-    border-radius: 7px !important;
-    padding: 6px 12px !important;
-    transition: all 0.15s !important;
-    font-family: 'Inter', sans-serif !important;
+    font-size: 0.70rem !important;
+    border-radius: 2px !important;
+    padding: 5px 10px !important;
+    transition: all 0.1s !important;
+    font-family: 'Space Mono', monospace !important;
+    letter-spacing: 0.04em !important;
   }
   .stButton button:hover {
-    border-color: rgba(232,201,126,0.4) !important;
+    border-color: var(--gold) !important;
     color: var(--gold) !important;
-    background: var(--bg-hover) !important;
+    background: rgba(232,201,126,0.06) !important;
+  }
+
+  /* Asset list buttons — smaller to fit long Indian index names */
+  [data-testid="column"]:first-child .stButton button {
+    font-size: 0.64rem !important;
+    padding: 4px 6px !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   /* ── TABS ── */
-  .stTabs [data-baseweb="tab-list"] { background:transparent; gap:4px; }
+  .stTabs [data-baseweb="tab-list"] { background:transparent; gap:2px; border-bottom: 1px solid var(--border); }
   .stTabs [data-baseweb="tab"] {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 7px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     color: var(--text-dim);
-    font-size: 0.72rem;
-    font-family: 'Inter', sans-serif;
+    font-size: 0.66rem;
+    font-family: 'Space Mono', monospace;
     padding: 6px 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
   .stTabs [aria-selected="true"] {
-    background: var(--bg-hover) !important;
-    border-color: rgba(232,201,126,0.35) !important;
+    background: transparent !important;
+    border-bottom: 2px solid var(--gold) !important;
     color: var(--gold) !important;
   }
   .stTabs [data-baseweb="tab-border"] { display:none; }
@@ -438,28 +505,30 @@ st.markdown("""
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
     color: var(--text-pri) !important;
-    border-radius: 8px !important;
-    font-size: 0.82rem !important;
-    padding: 8px 12px !important;
+    border-radius: 2px !important;
+    font-size: 0.78rem !important;
+    padding: 7px 11px !important;
+    font-family: 'Inter', sans-serif !important;
   }
   .stTextInput input:focus {
-    border-color: rgba(232,201,126,0.5) !important;
-    box-shadow: 0 0 0 3px rgba(232,201,126,0.08) !important;
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 2px rgba(232,201,126,0.10) !important;
   }
   .stTextInput input::placeholder { color: var(--text-dim) !important; }
 
   /* ── SCROLLBAR ── */
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
 
   /* ── EXPANDER ── */
   .streamlit-expanderHeader {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 7px !important;
+    border-radius: 2px !important;
     color: var(--text-sec) !important;
-    font-size: 0.75rem !important;
+    font-size: 0.70rem !important;
+    font-family: 'Space Mono', monospace !important;
   }
 
   /* ── LOGIN SCREEN ── */
@@ -469,29 +538,24 @@ st.markdown("""
     padding-top: 80px;
   }
   .login-card {
-    width: 440px;
-    background: var(--bg-panel);
+    width: 400px;
+    background: #000;
     border: 1px solid var(--border-mid);
-    border-radius: 18px;
-    padding: 48px 44px 40px;
-    box-shadow: 0 0 80px rgba(232,201,126,0.07), 0 32px 64px rgba(0,0,0,0.5);
-  }
-  .login-glow {
-    position: absolute;
-    width: 200px; height: 1px;
-    top: 0; left: 50%; transform: translateX(-50%);
-    background: linear-gradient(90deg, transparent, rgba(232,201,126,0.5), transparent);
-    border-radius: 50%;
+    border-top: 3px solid var(--gold);
+    border-radius: 0;
+    padding: 44px 40px 36px;
+    box-shadow: 0 0 60px rgba(232,201,126,0.05), 0 24px 48px rgba(0,0,0,0.7);
   }
   .login-error {
-    background: rgba(248,113,113,0.08);
-    border: 1px solid rgba(248,113,113,0.25);
-    border-radius: 8px;
-    padding: 9px 14px;
-    font-size: 0.75rem;
-    color: #f87171;
+    background: rgba(255,77,106,0.08);
+    border: 1px solid rgba(255,77,106,0.22);
+    border-radius: 2px;
+    padding: 8px 12px;
+    font-size: 0.70rem;
+    color: #ff4d6a;
+    font-family: 'Space Mono', monospace;
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
 
   hr { border-color: var(--border) !important; }
@@ -558,23 +622,39 @@ if not st.session_state.logged_in:
     _, cc, _ = st.columns([1, 1.1, 1])
     with cc:
         st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:2.8rem;text-align:center;margin-bottom:10px;color:#e8c97e;font-family:Syne,sans-serif;font-weight:800">◈</div>', unsafe_allow_html=True)
+
+        # Logo — chess horse piece with transparent bg
+        import base64, os
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.jpeg")
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+            st.markdown(f"""
+            <div style="text-align:center;margin-bottom:16px">
+              <img src="data:image/jpeg;base64,{logo_b64}"
+                   style="height:72px;width:72px;object-fit:contain;
+                          mix-blend-mode:lighten;filter:brightness(1.1) contrast(1.05);"
+                   alt="Blackwater One"/>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="font-size:2.2rem;text-align:center;margin-bottom:16px;color:#e8c97e">♞</div>',
+                        unsafe_allow_html=True)
+
         st.markdown("""
-        <div style="text-align:center;margin-bottom:24px">
-          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.8rem;
-                      color:#e8c97e;letter-spacing:0.02em;margin-bottom:4px">
-            Blackwater One
+        <div style="text-align:center;margin-bottom:28px">
+          <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:1.4rem;
+                      color:#e8c97e;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">
+            BLACKWATER ONE
           </div>
-          <div style="font-family:'Space Mono',monospace;font-size:0.62rem;color:#4a6080;
-                      letter-spacing:0.2em;text-transform:uppercase;margin-bottom:20px">
+          <div style="font-family:'Space Mono',monospace;font-size:0.55rem;color:#3d5570;
+                      letter-spacing:0.28em;text-transform:uppercase;margin-bottom:18px">
             Market Intelligence Terminal
           </div>
-          <div style="font-size:0.85rem;color:#8a9bb0;line-height:1.75;max-width:340px;margin:0 auto 28px">
+          <div style="width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(232,201,126,0.3),transparent);margin-bottom:18px"></div>
+          <div style="font-size:0.78rem;color:#7a8fa8;line-height:1.8;max-width:300px;margin:0 auto 24px;font-family:'Inter',sans-serif">
             Real-time signals across US &amp; Indian markets — momentum, volatility,
-            drawdown, correlation — fused with macro news, economic calendars,
-            and AI-powered daily analysis by the Eagle agent.
+            drawdown — fused with macro news and AI-powered analysis.
           </div>
-          <div style="width:180px;height:1px;background:linear-gradient(90deg,transparent,rgba(232,201,126,0.4),transparent);margin:0 auto 28px"></div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -586,7 +666,7 @@ if not st.session_state.logged_in:
                                  type="password", key="login_pass")
         st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
 
-        if st.button("Login →", use_container_width=True, key="login_btn"):
+        if st.button("LOGIN →", use_container_width=True, key="login_btn"):
             u, p = username.strip(), password.strip()
             if u in USERS and USERS[u]["password"] == p:
                 st.session_state.logged_in    = True
@@ -598,8 +678,8 @@ if not st.session_state.logged_in:
                 st.rerun()
 
         st.markdown("""
-        <div style="text-align:center;margin-top:22px;font-size:0.6rem;color:#2a3548;
-                    font-family:'Space Mono',monospace;letter-spacing:0.1em">
+        <div style="text-align:center;margin-top:20px;font-size:0.55rem;color:#1e2a38;
+                    font-family:'Space Mono',monospace;letter-spacing:0.16em">
           PRIVATE · AUTHORIZED ACCESS ONLY
         </div>""", unsafe_allow_html=True)
     st.stop()
@@ -615,6 +695,10 @@ if st.session_state.get("page") == "weather":
 
 if st.session_state.get("page") == "flights":
     render_airline_traffic()
+    st.stop()
+
+if st.session_state.get("page") == "geoint":
+    render_geoint()
     st.stop()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -726,15 +810,27 @@ def correlation_heatmap(signals_dict):
 # ══════════════════════════════════════════════════════════════════════════════
 # TOP BAR
 # ══════════════════════════════════════════════════════════════════════════════
+import base64 as _b64, os as _os
+_logo_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "logo.jpeg")
+_logo_html = ""
+if _os.path.exists(_logo_path):
+    with open(_logo_path, "rb") as _f:
+        _logo_b64 = _b64.b64encode(_f.read()).decode()
+    _logo_html = (f'<img src="data:image/jpeg;base64,{_logo_b64}" class="topbar-logo-img" '
+                  f'style="mix-blend-mode:lighten;filter:brightness(1.1);" alt="BW"/>')
+else:
+    _logo_html = '<span style="font-size:1.1rem;color:#e8c97e">♞</span>'
+
 st.markdown(f"""
 <div class="topbar">
-  <span style="font-size:1.1rem;color:#e8c97e;font-family:Syne,sans-serif;font-weight:800">◈</span>
+  {_logo_html}
   <span class="topbar-logo">Blackwater One</span>
   <div class="topbar-sep"></div>
   <span class="topbar-sub">Market Intelligence Terminal</span>
   <div style="flex:1"></div>
-  <span class="topbar-time">{datetime.now().strftime("%b %d %Y · %H:%M")}</span>
-  <span class="topbar-user">👤 {st.session_state.current_user}</span>
+  <span class="topbar-pill">● Live</span>
+  <span class="topbar-time">{datetime.now().strftime("%d %b %Y · %H:%M")}</span>
+  <span class="topbar-user">▲ {st.session_state.current_user}</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -821,7 +917,7 @@ with col_assets:
 
     # ── Asset groups ───────────────────────────────────────────────────────────
     for group_name, group_syms in config.ASSET_GROUPS.items():
-        loaded_syms = [s for s in group_syms if s in signals]
+        loaded_syms = [s for s in group_syms if s in signals or s in price_summary]
         if not loaded_syms:
             continue
         st.markdown(f'<div class="group-label">{group_name}</div>', unsafe_allow_html=True)
@@ -836,26 +932,21 @@ with col_assets:
             display = asset_display(sym)
 
             if st.button(
-                f"{'● ' if is_sel else '  '}{display}",
+                f"{'▶ ' if is_sel else ''}{display}",
                 key=f"ab_{sym}", use_container_width=True
             ):
                 st.session_state.selected_asset = sym
                 st.rerun()
 
+            is_indian = sym.startswith("^")
+            price_fmt = f"₹{price:,.2f}" if is_indian else f"${price:,.2f}"
             st.markdown(f"""
-            <div style="padding:1px 10px 6px;margin-bottom:2px;border-bottom:1px solid #0e1218">
-              <span style="font-family:'Space Mono',monospace;font-size:0.72rem;color:#eef2f7">
-                ${price:,.2f}
+            <div style="padding:1px 10px 6px;margin-bottom:2px;border-bottom:1px solid #0b0e12">
+              <span style="font-family:'Space Mono',monospace;font-size:0.72rem;color:#f0f4f8">
+                {price_fmt}
               </span>
               <span class="{chg_cl}" style="margin-left:8px">{chg_arrow} {abs(chg*100):.2f}%</span>
             </div>""", unsafe_allow_html=True)
-
-    # ── Correlation heatmap ────────────────────────────────────────────────────
-    st.markdown('<div class="sec-hdr" style="margin-top:14px">Correlations</div>', unsafe_allow_html=True)
-    if signals:
-        fig_c = correlation_heatmap(signals)
-        if fig_c:
-            st.plotly_chart(fig_c, use_container_width=True, config={"displayModeBar": False})
 
     # ── Active flags ───────────────────────────────────────────────────────────
     st.markdown('<div class="sec-hdr">Active Flags</div>', unsafe_allow_html=True)
@@ -893,6 +984,7 @@ with col_charts:
         chg_color = "#4ade80" if chg >= 0 else "#f87171"
         chg_arrow = "▲" if chg >= 0 else "▼"
         display   = asset_display(selected)
+        currency  = "₹" if selected.startswith("^") else "$"
 
         # ── Asset header ──────────────────────────────────────────────────────
         st.markdown(f"""
@@ -902,7 +994,7 @@ with col_charts:
             <div class="asset-name-lg">{selected} · Updated {sig.get('date','—')}</div>
           </div>
           <div style="text-align:right">
-            <div class="asset-price-lg">${sig.get('price', 0):,.2f}</div>
+            <div class="asset-price-lg">{currency}{sig.get('price', 0):,.2f}</div>
             <div style="color:{chg_color};font-size:0.78rem;margin-top:3px;font-family:'Space Mono',monospace">
               {chg_arrow} {abs(chg*100):.2f}% today
             </div>
@@ -941,12 +1033,12 @@ with col_charts:
         for f in sig.get("risk_flags", []):
             st.markdown(f'<div class="flag-item">{f}</div>', unsafe_allow_html=True)
 
-        # ── Daily summary ─────────────────────────────────────────────────────
-        st.markdown('<div class="sec-hdr" style="margin-top:14px">Eagle Daily Summary</div>', unsafe_allow_html=True)
-        if st.session_state.daily_summary:
-            st.markdown(f'<div class="summary-box">{st.session_state.daily_summary}</div>', unsafe_allow_html=True)
-        else:
-            st.info("No summary yet — click Refresh.")
+        # ── Eagle Daily Summary (collapsed) ───────────────────────────────────
+        with st.expander("📋 Eagle Daily Summary", expanded=False):
+            if st.session_state.daily_summary:
+                st.markdown(f'<div class="summary-box">{st.session_state.daily_summary}</div>', unsafe_allow_html=True)
+            else:
+                st.info("No summary yet — click Refresh.")
 
         if st.button(f"🔍 Deep-dive: {display}", use_container_width=True):
             news_fmt = format_news_for_llm(
@@ -967,6 +1059,32 @@ with col_charts:
                          use_container_width=True, height=180)
         else:
             st.caption("No history yet.")
+
+    # ── Economic Calendar ──────────────────────────────────────────────────────
+    st.markdown('<div class="sec-hdr" style="margin-top:14px">Economic Calendar — 7 Days</div>', unsafe_allow_html=True)
+    for ev in st.session_state.econ_calendar[:14]:
+        name    = ev.get("event", ev.get("name", ""))
+        date    = str(ev.get("date", ""))[:10]
+        impact  = ev.get("impact", ev.get("importance", ""))
+        actual  = ev.get("actual", "")
+        est     = ev.get("estimate", ev.get("consensus", ""))
+        country = ev.get("country", "")
+        ic      = impact_class(str(impact))
+        imp_color = {"high": "#f87171", "medium": "#fbbf24", "low": "#4a6080"}.get(ic, "#4a6080")
+        st.markdown(f"""
+        <div class="econ-event {ic}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:#eef2f7;font-weight:500;font-size:0.74rem">{name}</span>
+            <span style="color:{imp_color};font-size:0.65rem;white-space:nowrap;margin-left:8px">● {impact}</span>
+          </div>
+          <div style="color:#4a6080;font-size:0.65rem;margin-top:3px">
+            {date}{f' · {country}' if country else ''}
+            {f' <span style="color:#8a9bb0">· est {est}</span>' if est else ''}
+            {f' <span style="color:#e8c97e">· act {actual}</span>' if actual else ''}
+          </div>
+        </div>""", unsafe_allow_html=True)
+    if not st.session_state.econ_calendar:
+        st.caption("No upcoming events loaded.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1014,22 +1132,6 @@ with col_news:
                   {content}
                 </div>""", unsafe_allow_html=True)
 
-    st.markdown('<div class="sec-hdr">Quick Questions</div>', unsafe_allow_html=True)
-    qc = st.columns(2)
-    for i, p in enumerate(["Overall regime?","Top news impact?","India vs US?",
-                            "Geopolitical risk?","Macro events?","Vol comparison"]):
-        with qc[i % 2]:
-            if st.button(p, key=f"qp_{i}", use_container_width=True):
-                st.session_state.chat_history.append({"role": "user", "content": p})
-                with st.spinner(""):
-                    reply = chat_with_agent(
-                        st.session_state.chat_history, st.session_state.signals,
-                        news_context=format_news_for_llm(st.session_state.news_general, 12),
-                        econ_context=format_econ_calendar_for_llm(st.session_state.econ_calendar),
-                    )
-                st.session_state.chat_history.append({"role": "assistant", "content": reply})
-                st.rerun()
-
     user_input = st.text_input("Message Eagle", placeholder="Ask about markets or news...",
                                label_visibility="collapsed", key="chat_input")
     sc, cc2 = st.columns([3, 1])
@@ -1072,34 +1174,6 @@ with col_news:
           </div>
           <div class="news-meta">{date} · {source}</div>
         </div>""", unsafe_allow_html=True)
-
-    # ── Economic Calendar ──────────────────────────────────────────────────────
-    st.markdown('<div class="sec-hdr" style="margin-top:16px">Economic Calendar — 7 Days</div>', unsafe_allow_html=True)
-    for ev in st.session_state.econ_calendar[:14]:
-        name    = ev.get("event", ev.get("name", ""))
-        date    = str(ev.get("date", ""))[:10]
-        impact  = ev.get("impact", ev.get("importance", ""))
-        actual  = ev.get("actual", "")
-        est     = ev.get("estimate", ev.get("consensus", ""))
-        country = ev.get("country", "")
-        ic      = impact_class(str(impact))
-        imp_color = {"high": "#f87171", "medium": "#fbbf24", "low": "#4a6080"}.get(ic, "#4a6080")
-        st.markdown(f"""
-        <div class="econ-event {ic}">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="color:#eef2f7;font-weight:500;font-size:0.74rem">{name}</span>
-            <span style="color:{imp_color};font-size:0.65rem;white-space:nowrap;margin-left:8px">● {impact}</span>
-          </div>
-          <div style="color:#4a6080;font-size:0.65rem;margin-top:3px">
-            {date}{f' · {country}' if country else ''}
-            {f' <span style="color:#8a9bb0">· est {est}</span>' if est else ''}
-            {f' <span style="color:#e8c97e">· act {actual}</span>' if actual else ''}
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-    if not st.session_state.econ_calendar:
-        st.caption("No upcoming events loaded.")
-
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1168,13 +1242,19 @@ with col_media:
         st.rerun()
 
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-    if st.button("🌍 Weather Intelligence", use_container_width=True, key="open_weather"):
+    if st.button("🌦 Weather Intelligence", use_container_width=True, key="open_weather"):
         st.session_state.page = "weather"
         st.rerun()
 
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     if st.button("✈️ Flight Intelligence", use_container_width=True, key="open_flights"):
         st.session_state.page = "flights"
+        st.rerun()
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    if st.button("🌍 Geopolitical Intelligence", use_container_width=True, key="open_geoint"):
+        st.session_state.page = "geoint"
+        st.session_state.gi_loaded = False
         st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
