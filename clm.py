@@ -162,6 +162,10 @@ def render_clm():
     <div style="height:16px"></div>
     """, unsafe_allow_html=True)
 
+    if st.button("← Back to Blackwater One", key="clm_back"):
+        st.session_state.page = "eagle"
+        st.rerun()
+
     contracts = load_contracts()
     total     = len(contracts)
 
@@ -503,6 +507,3 @@ def render_clm():
                 )
 
     st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-    if st.button("← Back to Eagle", key="clm_back"):
-        st.session_state.page = "eagle"
-        st.rerun()
