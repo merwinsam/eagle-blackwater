@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import time
+import streamlit.components.v1
 
 GEOINT_CSS = """
 <style>
@@ -39,6 +40,10 @@ GEOINT_CSS = """
 .gi-tag.news{background:rgba(68,136,255,.10);color:#4488ff;border:1px solid rgba(68,136,255,.22);}
 .gi-statusbar{background:#000;border-top:1px solid #0a2010;padding:4px 14px;display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:.50rem;color:#0d3a1a;}
 .gi-statusbar .ok{color:#00cc66;}.gi-statusbar .err{color:#ff4444;}
+/* Globe fills viewport */
+#globe-container { width:100%;height:90vh;position:relative; }
+#globe-container iframe,
+#globe-container > div { width:100% !important;height:100% !important; }
 </style>
 """
 
@@ -133,7 +138,8 @@ def gi_fetch_acled(days: int = 14) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def gi_fetch_opensky() -> pd.DataFrame:
+def gi_fetch_aircraft() -> pd.DataFrame:
+    """FR24 API — live aircraft in sensitive airspace (same key as ATI)."""
     regions = [
         ("Middle East",      20,42,25,63),
         ("Eastern Europe",   44,58,22,45),
@@ -142,24 +148,39 @@ def gi_fetch_opensky() -> pd.DataFrame:
         ("Taiwan Strait",    20,30,118,125),
         ("Red Sea / Horn",    8,30,30,50),
     ]
+    try:
+        token = st.secrets["FR24_API_KEY"]
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json", "Accept-Version": "v1"}
+    except Exception:
+        return pd.DataFrame()
     rows = []
-    for name,la0,la1,lo0,lo1 in regions:
+    for name, la0, la1, lo0, lo1 in regions:
         try:
             r = requests.get(
-                f"https://opensky-network.org/api/states/all?lamin={la0}&lomin={lo0}&lamax={la1}&lomax={lo1}",
-                timeout=8)
+                "https://fr24api.flightradar24.com/api/live/flight-positions/light",
+                params={"bounds": f"{la1},{la0},{lo0},{lo1}"},
+                headers=headers, timeout=10)
             if r.status_code == 200:
-                for s in (r.json().get("states") or [])[:25]:
-                    if s and len(s)>=11 and s[5] and s[6]:
-                        rows.append({
-                            "icao":s[0] or "","callsign":(s[1] or "").strip(),"country":s[2] or "",
-                            "longitude":float(s[5]),"latitude":float(s[6]),
-                            "altitude":float(s[7] or 0),"velocity":float(s[9] or 0),
-                            "heading":float(s[10] or 0),"region":name,
-                        })
+                data = r.json()
+                flights = data.get("data", data) if isinstance(data, dict) else data
+                for f in (flights or [])[:30]:
+                    lat = f.get("lat") or f.get("latitude")
+                    lon = f.get("lon") or f.get("longitude")
+                    if not lat or not lon:
+                        continue
+                    rows.append({
+                        "icao":     f.get("icao24","") or f.get("hex",""),
+                        "callsign": (f.get("callsign","") or f.get("flight","") or "").strip(),
+                        "country":  f.get("orig_iata","") or f.get("country",""),
+                        "longitude":float(lon), "latitude": float(lat),
+                        "altitude": float(f.get("alt",0) or f.get("altitude",0) or 0),
+                        "velocity": float(f.get("gspeed",0) or f.get("speed",0) or 0),
+                        "heading":  float(f.get("track",0) or f.get("heading",0) or 0),
+                        "region":   name,
+                    })
             time.sleep(0.3)
         except Exception as e:
-            print(f"[geoint] OpenSky {name}: {e}")
+            print(f"[geoint] FR24 {name}: {e}")
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
@@ -198,22 +219,51 @@ def gi_fetch_gdacs() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=180, show_spinner=False)
-def gi_fetch_gdelt(query:str="conflict war sanctions military naval",n:int=50) -> pd.DataFrame:
+def gi_fetch_gdelt(n:int=50) -> pd.DataFrame:
+    """FMP general news — geopolitical/market headlines."""
     try:
-        url=(f"https://api.gdeltproject.org/api/v2/doc/doc"
-             f"?query={requests.utils.quote(query)}"
-             "&mode=artlist&maxrecords=75&format=json&timespan=24h&sort=datedesc")
-        r=requests.get(url,timeout=12)
-        if r.status_code!=200: return pd.DataFrame()
-        rows=[]
-        for a in (r.json().get("articles") or [])[:n]:
-            rows.append({"title":a.get("title",""),"url":a.get("url","#"),
-                         "source":a.get("domain",""),"date":(a.get("seendate","") or "")[:10],
-                         "country":a.get("sourcecountry",""),"tone":float(a.get("tone",0))})
-        return pd.DataFrame(rows) if rows else pd.DataFrame()
+        import config
+        url = f"https://financialmodelingprep.com/stable/news/general-latest?apikey={config.FMP_API_KEY}&limit=80"
+        r = requests.get(url, timeout=12)
+        if r.status_code == 200:
+            rows = []
+            keywords = {"war","conflict","sanction","military","missile","nuclear","attack",
+                        "invasion","ceasefire","troops","nato","geopolit","coup","unrest",
+                        "tariff","embargo","blockade","crisis","tension"}
+            for a in r.json()[:120]:
+                title = (a.get("title","") or "").lower()
+                if not any(kw in title for kw in keywords):
+                    continue
+                rows.append({
+                    "title":  a.get("title",""),
+                    "url":    a.get("url","#"),
+                    "source": a.get("site","") or a.get("symbol",""),
+                    "date":   (a.get("publishedDate","") or "")[:10],
+                    "country":"",
+                    "tone":   0.0,
+                })
+                if len(rows) >= n:
+                    break
+            if rows:
+                return pd.DataFrame(rows)
     except Exception as e:
-        print(f"[geoint] GDELT: {e}")
-        return pd.DataFrame()
+        print(f"[geoint] FMP news: {e}")
+    # GDELT fallback
+    try:
+        url2 = ("https://api.gdeltproject.org/api/v2/doc/doc"
+                "?query=conflict+war+sanctions+military+naval"
+                "&mode=artlist&maxrecords=50&format=json&timespan=24h&sort=datedesc")
+        r2 = requests.get(url2, timeout=10)
+        if r2.status_code == 200:
+            rows = []
+            for a in (r2.json().get("articles") or [])[:n]:
+                rows.append({"title":a.get("title",""),"url":a.get("url","#"),
+                             "source":a.get("domain",""),"date":(a.get("seendate","") or "")[:10],
+                             "country":a.get("sourcecountry",""),"tone":float(a.get("tone",0))})
+            return pd.DataFrame(rows) if rows else pd.DataFrame()
+    except Exception as e:
+        print(f"[geoint] GDELT fallback: {e}")
+    return pd.DataFrame()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -262,7 +312,7 @@ def gi_fetch_maritime() -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def build_globe(layers, acled, opensky, gdacs, maritime):
+def build_globe(layers, acled, aircraft, gdacs, maritime):
     fig = go.Figure()
 
     if layers.get("conflict") and not acled.empty:
@@ -291,13 +341,13 @@ def build_globe(layers, acled, opensky, gdacs, maritime):
             hoverlabel=dict(bgcolor="#050505",bordercolor="#332200",font=dict(color="#ffaa00",size=10,family="Share Tech Mono")),
             name="⚠ Disasters (GDACS)"))
 
-    if layers.get("aircraft") and not opensky.empty:
-        hover=[f"<b>✈ {r.get('callsign','—') or '—'}</b><br>ICAO: {r.get('icao','—')} · {r.get('country','—')}<br>Zone: {r.get('region','—')}<br>Alt: {r.get('altitude',0):.0f}m" for _,r in opensky.iterrows()]
-        fig.add_trace(go.Scattergeo(lat=opensky.latitude,lon=opensky.longitude,mode="markers",
+    if layers.get("aircraft") and not aircraft.empty:
+        hover=[f"<b>✈ {r.get('callsign','—') or '—'}</b><br>ICAO: {r.get('icao','—')} · {r.get('country','—')}<br>Zone: {r.get('region','—')}<br>Alt: {r.get('altitude',0):.0f}m" for _,r in aircraft.iterrows()]
+        fig.add_trace(go.Scattergeo(lat=aircraft.latitude,lon=aircraft.longitude,mode="markers",
             marker=dict(size=7,color="#00ffaa",opacity=0.75,symbol="triangle-up",line=dict(width=1,color="rgba(0,255,150,0.4)")),
             text=hover,hoverinfo="text",
             hoverlabel=dict(bgcolor="#050505",bordercolor="#003322",font=dict(color="#00ffaa",size=10,family="Share Tech Mono")),
-            name="✈ Aircraft (OpenSky)"))
+            name="✈ Aircraft (FR24)"))
 
     if layers.get("maritime") and not maritime.empty:
         hover=[f"<b>⚓ Maritime Signal</b><br>{r.get('title','')[:70]}…<br>{r.get('source','—')} · {r.get('date','')}" for _,r in maritime.iterrows()]
@@ -349,7 +399,7 @@ def build_globe(layers, acled, opensky, gdacs, maritime):
     )
     fig.update_layout(
         paper_bgcolor="#000000",plot_bgcolor="#000000",
-        margin=dict(l=0,r=0,t=0,b=0),height=590,
+        margin=dict(l=0,r=0,t=0,b=0),height=820,
         legend=dict(orientation="h",x=0.01,y=0.02,
             bgcolor="rgba(0,0,0,0.90)",bordercolor="#0d2a10",borderwidth=1,
             font=dict(size=9,color="#2a8a4a",family="Share Tech Mono")),
@@ -394,7 +444,7 @@ def render_geoint():
             st.session_state.page="eagle"; st.rerun()
     with n2:
         if st.button("⟳", key="gi_ref", use_container_width=True, help="Refresh all feeds"):
-            for fn in [gi_fetch_acled,gi_fetch_opensky,gi_fetch_gdacs,gi_fetch_gdelt,gi_fetch_worldbank,gi_fetch_maritime]:
+            for fn in [gi_fetch_acled,gi_fetch_aircraft,gi_fetch_gdacs,gi_fetch_gdelt,gi_fetch_worldbank,gi_fetch_maritime]:
                 fn.clear()
             st.session_state.gi_loaded=False; st.rerun()
     with n3:
@@ -412,17 +462,17 @@ def render_geoint():
     if not st.session_state.get("gi_loaded"):
         prog=st.progress(0)
         prog.progress(5,"Fetching conflict events (ACLED)…"); acled=gi_fetch_acled(14)
-        prog.progress(22,"Tracking aircraft (OpenSky)…");    opensky=gi_fetch_opensky()
+        prog.progress(22,"Tracking aircraft (FR24)…");    aircraft=gi_fetch_aircraft()
         prog.progress(40,"Loading disaster alerts (GDACS)…"); gdacs=gi_fetch_gdacs()
         prog.progress(55,"Scanning news (GDELT)…");          gdelt=gi_fetch_gdelt()
         prog.progress(70,"Maritime incident signals…");       maritime=gi_fetch_maritime()
         prog.progress(85,"Economic indicators (World Bank)…");wb=gi_fetch_worldbank()
         prog.progress(100,"Intelligence feeds online."); prog.empty()
-        st.session_state.update({"gi_acled":acled,"gi_opensky":opensky,"gi_gdacs":gdacs,
+        st.session_state.update({"gi_acled":acled,"gi_aircraft":aircraft,"gi_gdacs":gdacs,
             "gi_gdelt":gdelt,"gi_maritime":maritime,"gi_wb":wb,"gi_loaded":True,"gi_ts":time.time()})
 
     acled    = st.session_state.get("gi_acled",    pd.DataFrame())
-    opensky  = st.session_state.get("gi_opensky",  pd.DataFrame())
+    aircraft  = st.session_state.get("gi_aircraft",  pd.DataFrame())
     gdacs    = st.session_state.get("gi_gdacs",    pd.DataFrame())
     gdelt    = st.session_state.get("gi_gdelt",    pd.DataFrame())
     maritime = st.session_state.get("gi_maritime", pd.DataFrame())
@@ -435,7 +485,7 @@ def render_geoint():
         (kk[0],"red","Conflict Events",str(len(acled)),"Last 14 days · ACLED"),
         (kk[1],"red","Fatalities",f"{n_fatal:,}","Reported deaths"),
         (kk[2],"amber","Disaster Alerts",str(len(gdacs)),f"{n_red} RED · GDACS"),
-        (kk[3],"","Aircraft Tracked",str(len(opensky)),"Sensitive airspace"),
+        (kk[3],"","Aircraft Tracked",str(len(aircraft)),"Sensitive airspace"),
         (kk[4],"","Maritime Signals",str(len(maritime)),"72h · GDELT"),
         (kk[5],"","GDELT Events",str(len(gdelt)),"24h news feed"),
     ]:
@@ -447,9 +497,16 @@ def render_geoint():
     globe_col,feed_col = st.columns([2.6,1.0],gap="medium")
 
     with globe_col:
-        st.markdown('<div class="gi-hdr">Global Intelligence Globe — Drag to rotate · Scroll to zoom</div>',unsafe_allow_html=True)
-        fig=build_globe(layers,acled,opensky,gdacs,maritime)
-        st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":True,"modeBarButtonsToRemove":["toImage","select2d","lasso2d"],"displaylogo":False})
+        gh1, gh2 = st.columns([8,1])
+        with gh1:
+            st.markdown('<div class="gi-hdr">Global Intelligence Globe — Drag to rotate · Scroll to zoom</div>',unsafe_allow_html=True)
+        with gh2:
+            if st.button("⤢ Expand", key="globe_expand", use_container_width=True, help="Full screen globe"):
+                st.session_state.page = "globe_fullscreen"
+                st.rerun()
+        fig=build_globe(layers,acled,aircraft,gdacs,maritime)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":True,"modeBarButtonsToRemove":["toImage","select2d","lasso2d"],"displaylogo":False,"scrollZoom":True})
+
 
         if layers.get("econ") and not wb.empty:
             st.markdown('<div class="gi-hdr" style="margin-top:6px">Global Economic Indicators · World Bank</div>',unsafe_allow_html=True)
@@ -503,15 +560,15 @@ def render_geoint():
             st.markdown('<div class="gi-card">GDACS unavailable.</div>',unsafe_allow_html=True)
 
         st.markdown('<div class="gi-hdr" style="margin-top:10px">Aircraft · Sensitive Zones</div>',unsafe_allow_html=True)
-        if not opensky.empty:
-            by_region=opensky.groupby("region").size().reset_index(name="n")
+        if not aircraft.empty:
+            by_region=aircraft.groupby("region").size().reset_index(name="n")
             for _,row in by_region.iterrows():
                 st.markdown(f'<div class="gi-card"><span class="gi-tag aircraft">AIRCRAFT</span><b style="color:#00ffaa;margin-left:5px">{row["region"]}</b><span style="color:#1a5a2a;font-size:.62rem;margin-left:6px">{row["n"]} tracked</span></div>',unsafe_allow_html=True)
-            for _,row in opensky.head(10).iterrows():
+            for _,row in aircraft.head(10).iterrows():
                 cs=(row.get("callsign","") or "—")
                 st.markdown(f'<div style="padding:2px 10px;font-family:\'Share Tech Mono\',monospace;font-size:.58rem;color:#1a5a2a;border-bottom:1px solid #080f08">✈ {cs:<8} {row.get("region",""):18} {row.get("altitude",0):.0f}m</div>',unsafe_allow_html=True)
         else:
-            st.markdown('<div class="gi-card">OpenSky unavailable.</div>',unsafe_allow_html=True)
+            st.markdown('<div class="gi-card">FR24 unavailable.</div>',unsafe_allow_html=True)
 
         if not maritime.empty:
             st.markdown('<div class="gi-hdr" style="margin-top:10px">Maritime Signals</div>',unsafe_allow_html=True)
@@ -520,7 +577,108 @@ def render_geoint():
 
     age=int(time.time()-st.session_state.get("gi_ts",time.time()))
     age_s=f"{age//60}m {age%60}s ago" if age>60 else f"{age}s ago"
-    sources=[("ACLED",not acled.empty),("OpenSky",not opensky.empty),("GDACS",not gdacs.empty),
+    sources=[("ACLED",not acled.empty),("FR24",not aircraft.empty),("GDACS",not gdacs.empty),
              ("GDELT",not gdelt.empty),("Maritime",not maritime.empty),("World Bank",not wb.empty)]
     sb=" · ".join(f'<span class="{"ok" if ok else "err"}">{n} {"●" if ok else "✗"}</span>' for n,ok in sources)
     st.markdown(f'<div class="gi-statusbar">{sb}<span style="margin-left:auto">Last fetch: {age_s}</span></div>',unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FULLSCREEN GLOBE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_globe_fullscreen():
+    """Full-bleed globe — no columns, no sidebar, edge to edge."""
+    st.markdown("""
+    <style>
+    /* Hide all Streamlit chrome */
+    #MainMenu, header, footer, [data-testid="stToolbar"],
+    [data-testid="stDecoration"], [data-testid="stStatusWidget"] { display:none !important; }
+    /* Kill all padding */
+    .main .block-container {
+        padding: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+    section[data-testid="stMain"] > div { padding: 0 !important; }
+    /* Globe bar */
+    .gb-bar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+        background: rgba(0,0,0,0.82);
+        border-bottom: 1px solid #0d2a1a;
+        padding: 0 16px; height: 38px;
+        display: flex; align-items: center; gap: 10px;
+        font-family: 'Share Tech Mono', monospace;
+    }
+    .gb-title { font-size: .58rem; color: #00ff88; letter-spacing: .18em; text-transform: uppercase; }
+    .gb-dot   { width:5px;height:5px;border-radius:50%;background:#00ff88;
+                animation:gi-pulse 2s ease-in-out infinite; }
+    @keyframes gi-pulse{0%,100%{opacity:1}50%{opacity:.25}}
+    /* Chart fills everything below bar */
+    [data-testid="stPlotlyChart"] {
+        position: fixed !important;
+        top: 38px !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100vw !important;
+        height: calc(100vh - 38px) !important;
+    }
+    [data-testid="stPlotlyChart"] > div,
+    [data-testid="stPlotlyChart"] .js-plotly-plot,
+    [data-testid="stPlotlyChart"] .plot-container.plotly {
+        width:  100% !important;
+        height: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    ts = datetime.utcnow().strftime("%H:%M UTC")
+    st.markdown(f"""
+    <div class="gb-bar">
+      <span class="gb-dot"></span>
+      <span class="gb-title">Blackwater GEOINT — Global Intelligence Globe</span>
+      <span style="margin-left:auto;font-size:.54rem;color:#1a5a2a">{ts}</span>
+    </div>""", unsafe_allow_html=True)
+
+    # Back button — floated top-right via CSS
+    st.markdown("""
+    <style>
+    div[data-testid="stButton"]:first-of-type button {
+        position: fixed !important; top: 6px !important; right: 16px !important;
+        z-index: 1000 !important;
+        background: rgba(0,0,0,0.7) !important;
+        border: 1px solid #0d2a1a !important;
+        color: #00ff88 !important;
+        font-family: 'Share Tech Mono',monospace !important;
+        font-size: .58rem !important;
+        padding: 3px 10px !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+    if st.button("✕ Close", key="globe_close"):
+        st.session_state.page = "geoint"
+        st.rerun()
+
+    # Reuse cached data — no new fetches
+    acled    = st.session_state.get("gi_acled",    pd.DataFrame())
+    aircraft = st.session_state.get("gi_aircraft", pd.DataFrame())
+    gdacs    = st.session_state.get("gi_gdacs",    pd.DataFrame())
+    maritime = st.session_state.get("gi_maritime", pd.DataFrame())
+
+    # Active layers from session
+    layers = {k: st.session_state.get(f"gi_l_{k}", k in ("conflict","disasters","hotspots"))
+              for k in ("conflict","disasters","aircraft","maritime","hotspots","econ")}
+
+    fig = build_globe(layers, acled, aircraft, gdacs, maritime)
+
+    # Override to fill screen
+    fig.update_layout(
+        height=None,
+        autosize=True,
+        margin=dict(l=0, r=0, t=0, b=0),
+    )
+
+    st.plotly_chart(fig, use_container_width=True, config={
+        "displayModeBar": True,
+        "modeBarButtonsToRemove": ["toImage","select2d","lasso2d"],
+        "displaylogo": False,
+        "scrollZoom": True,
+    })

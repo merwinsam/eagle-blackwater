@@ -13,7 +13,6 @@ from datetime import datetime
 import config
 from clm import render_clm
 from weather_commodities import render_weather_commodities
-from airline_traffic import render_airline_traffic
 from geoint import render_geoint
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
@@ -324,7 +323,7 @@ st.markdown("""
   }
   .news-card:hover { border-left-color: var(--gold); background: var(--bg-hover); }
   .news-title {
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     font-weight: 500;
     color: var(--text-pri);
     line-height: 1.4;
@@ -693,12 +692,13 @@ if st.session_state.get("page") == "weather":
     render_weather_commodities()
     st.stop()
 
-if st.session_state.get("page") == "flights":
-    render_airline_traffic()
-    st.stop()
-
 if st.session_state.get("page") == "geoint":
     render_geoint()
+    st.stop()
+
+if st.session_state.get("page") == "globe_fullscreen":
+    from geoint import render_globe_fullscreen
+    render_globe_fullscreen()
     st.stop()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
@@ -1246,10 +1246,7 @@ with col_media:
         st.session_state.page = "weather"
         st.rerun()
 
-    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-    if st.button("✈️ Flight Intelligence", use_container_width=True, key="open_flights"):
-        st.session_state.page = "flights"
-        st.rerun()
+
 
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     if st.button("🌍 Geopolitical Intelligence", use_container_width=True, key="open_geoint"):
