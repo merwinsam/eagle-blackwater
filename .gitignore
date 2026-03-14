@@ -22,3 +22,4 @@ eagle_log.csv
 
 # Jupyter
 .ipynb_checkpoints/
+reasoning/__pycache__/

@@ -14,6 +14,7 @@ import config
 from clm import render_clm
 from weather_commodities import render_weather_commodities
 from geoint import render_geoint
+from investment_research import render_investment_research
 from market_data.loader import load_all_assets, get_latest_price_summary
 from market_data.news import (
     fetch_market_news, fetch_asset_news, fetch_economic_calendar,
@@ -701,6 +702,10 @@ if st.session_state.get("page") == "globe_fullscreen":
     render_globe_fullscreen()
     st.stop()
 
+if st.session_state.get("page") == "investment_research":
+    render_investment_research()
+    st.stop()
+
 # ── HELPERS ────────────────────────────────────────────────────────────────────
 def regime_class(r):
     return {"calm uptrend":"r-calm-uptrend","volatile uptrend":"r-volatile-uptrend",
@@ -1237,6 +1242,11 @@ with col_media:
     st.markdown('<div class="sec-hdr" style="margin-top:10px">Blackwater Tools</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+    if st.button("🔬 Investment Research", use_container_width=True, key="open_ir"):
+        st.session_state.page = "investment_research"
+        st.rerun()
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     if st.button("⚖️ Blackwater Legal", use_container_width=True, key="open_clm"):
         st.session_state.page = "clm"
         st.rerun()
