@@ -244,6 +244,89 @@ IR_CSS = """
 .hint-row:hover { background: rgba(201,168,76,.06); color: var(--gold2); }
 .hint-ticker { color: var(--gold2); font-weight: 500; min-width: 60px; }
 .hint-exch   { color: var(--txt3); font-size: .60rem; min-width: 50px; }
+
+/* Peer benchmarking table */
+.bench-wrap {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Mono', monospace;
+  font-size: .68rem;
+}
+.bench-table th {
+  background: #0a0c0f;
+  color: #4a5568;
+  font-size: .54rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-weight: 600;
+}
+.bench-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #0d0f12;
+  color: #c8d4e0;
+  vertical-align: top;
+}
+.bench-table tr:last-child td { border-bottom: none; }
+.bench-table tr:hover td { background: rgba(201,168,76,0.03); }
+.bench-ticker { color: var(--gold2); font-weight: 500; font-size: .72rem; }
+.bench-name   { color: #4a5568; font-size: .58rem; margin-top: 2px; }
+.bench-up   { color: #2ecc71; }
+.bench-down { color: #e74c3c; }
+.bench-neu  { color: #8a96a8; }
+
+/* Fragility bar */
+.frag-bar-bg {
+  background: #0d0f12;
+  border-radius: 2px;
+  height: 6px;
+  width: 80px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.frag-bar-fill {
+  height: 6px;
+  border-radius: 2px;
+}
+
+/* Executives table */
+.exec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .76rem;
+}
+.exec-table th {
+  background: #0a0c0f;
+  color: #4a5568;
+  font-family: 'DM Mono', monospace;
+  font-size: .52rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  padding: 8px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.exec-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #0d0f12;
+  color: #c8d4e0;
+}
+.exec-table tr:last-child td { border-bottom: none; }
+.exec-table tr:hover td { background: rgba(201,168,76,0.03); }
+.exec-name  { color: #e8ecf0; font-weight: 500; }
+.exec-title { color: #6a7a8a; font-size: .72rem; }
+.exec-pay   { color: var(--gold2); font-family: 'DM Mono', monospace; font-size: .68rem; }
 </style>
 """
 
@@ -296,7 +379,33 @@ def get_price_history(sym):
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_peers(sym):
     d = fmp(f"stock-peers?symbol={sym}")
-    return d[0].get("peersList", []) if d else []
+    if not d:
+        return []
+    # New endpoint returns list of {symbol, companyName, price, mktCap}
+    if isinstance(d, list) and d and isinstance(d[0], dict) and "symbol" in d[0]:
+        return d
+    # Old format: [{peersList: [...]}]
+    if isinstance(d[0], dict) and "peersList" in d[0]:
+        symbols = d[0].get("peersList", [])
+        return [{"symbol": s} for s in symbols]
+    return []
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_executives(sym):
+    d = fmp(f"key-executives?symbol={sym}&active=true")
+    return d or []
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_peer_ratios(sym):
+    """Fetch key metrics for a peer ticker — lightweight."""
+    d = fmp(f"ratios?symbol={sym}&limit=1")
+    return d[0] if d else {}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_peer_income(sym):
+    """Revenue YoY for peer."""
+    d = fmp(f"income-statement?symbol={sym}&limit=2")
+    return d or []
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_income(sym):
@@ -862,6 +971,9 @@ def render_investment_research():
         get_dividends.clear()
         get_owner_earnings.clear()
         get_ev.clear()
+        get_executives.clear()
+        get_peer_ratios.clear()
+        get_peer_income.clear()
         get_rev_product.clear()
         get_rev_geo.clear()
         get_news.clear()
@@ -885,6 +997,7 @@ def render_investment_research():
         news      = get_news(sym)
         oe_df     = get_owner_earnings(sym)
         ev_df     = get_ev(sym)
+        executives= get_executives(sym)
 
     if not profile:
         st.error(f"No data found for **{sym}**. Check the ticker and try again.")
@@ -1026,25 +1139,140 @@ def render_investment_research():
                         f'<b style="color:#e8c97e">Weinstein Analysis:</b> {stage_data["detail"]}</div>',
                         unsafe_allow_html=True)
 
-        # ── Peer comparison ───────────────────────────────────────────────────
+        # ── Peer Benchmarking Table ────────────────────────────────────────────
         if peers:
-            sec(f"Peer Comparison — {profile.get('industry','')}")
-            peer_data = []
-            for p in peers[:6]:
-                pr = get_profile(p)
-                if pr:
-                    peer_data.append({
-                        "Ticker": p,
-                        "Name":   pr.get("companyName","")[:25],
-                        "Price":  f"${pr.get('price',0):,.2f}",
-                        "Mkt Cap":fmt_num(pr.get("mktCap",0),"$","",1,1),
-                        "P/E":    fmt_num(pr.get("pe",None),"","",1,1),
-                        "Beta":   fmt_num(pr.get("beta",None),"","",1,2),
-                    })
-            if peer_data:
-                pdf = pd.DataFrame(peer_data)
-                st.dataframe(pdf, use_container_width=True, hide_index=True,
-                             height=min(len(peer_data)*38+40, 280))
+            sec(f"Peer Benchmarking — {profile.get('industry','')}")
+
+            def fragility_color(pct):
+                if pct < 30:   return "#2ecc71"
+                if pct < 50:   return "#f39c12"
+                return "#e74c3c"
+
+            def rev_yoy(inc_list):
+                if len(inc_list) < 2: return "—", ""
+                try:
+                    r0 = float(inc_list[0].get("revenue",0) or 0)
+                    r1 = float(inc_list[1].get("revenue",0) or 0)
+                    if r1 == 0: return "—", ""
+                    pct = (r0 - r1) / abs(r1) * 100
+                    cls = "bench-up" if pct > 0 else "bench-down"
+                    return f"{pct:+.1f}%", cls
+                except: return "—", ""
+
+            def net_debt_str(pr, bal):
+                try:
+                    cash = float(bal.get("cashAndCashEquivalents",0) or 0)
+                    debt = float(bal.get("totalDebt",0) or 0)
+                    nd   = debt - cash
+                    if nd > 0:
+                        return f"Net debt {fmt_num(nd,'$','',1e9,1)}B", "bench-down"
+                    else:
+                        return f"Net cash {fmt_num(abs(nd),'$','',1e9,1)}B", "bench-up"
+                except: return "—", "bench-neu"
+
+            # Build rows — include main stock at top, then peers
+            all_syms = [sym] + [p.get("symbol", p) if isinstance(p, dict) else p for p in peers[:7]]
+            rows_html = ""
+            for i, ticker in enumerate(all_syms[:8]):
+                pr  = get_profile(ticker)
+                if not pr: continue
+                rat = get_peer_ratios(ticker)
+                inc = get_peer_income(ticker)
+                bal_d = fmp(f"balance-sheet-statement?symbol={ticker}&limit=1")
+                bal   = bal_d[0] if bal_d else {}
+
+                mktcap   = float(pr.get("marketCap", pr.get("mktCap", 0)) or 0)
+                pe       = rat.get("priceToEarningsRatio") or pr.get("pe")
+                ev_ebitda= rat.get("enterpriseValueMultiple") or "—"
+                beta     = float(pr.get("beta", 0) or 0)
+                nd_str, nd_cls = net_debt_str(pr, bal)
+                rv_str, rv_cls = rev_yoy(inc)
+
+                # Fragility score: simple proxy — debt/assets
+                try:
+                    total_assets = float(bal.get("totalAssets", 1) or 1)
+                    total_debt   = float(bal.get("totalDebt", 0) or 0)
+                    frag_pct     = min(int(total_debt / total_assets * 100), 99)
+                except: frag_pct = 0
+                frag_col = fragility_color(frag_pct)
+
+                is_main = ticker == sym
+                row_style = 'style="background:rgba(201,168,76,0.04)"' if is_main else ""
+                ticker_badge = f'<span class="bench-ticker">{ticker}</span>{"&nbsp;★" if is_main else ""}'
+                name_short   = (pr.get("companyName",""))[:28]
+
+                ev_str = f"{float(ev_ebitda):.1f}x" if ev_ebitda and ev_ebitda != "—" else "—"
+                try: pe_str = f"{float(pe):.1f}x" if pe else "—"
+                except: pe_str = "—"
+                try: beta_str = f"{float(beta):.2f}"
+                except: beta_str = "—"
+
+                rows_html += f"""
+                <tr {row_style}>
+                  <td>{ticker_badge}<div class="bench-name">{name_short}</div></td>
+                  <td>{fmt_num(mktcap,"$","",1,1)}</td>
+                  <td>{pe_str}</td>
+                  <td>{ev_str}</td>
+                  <td><span class="{nd_cls}">{nd_str}</span></td>
+                  <td><span class="{rv_cls}">{rv_str}</span></td>
+                  <td>{beta_str}</td>
+                  <td>
+                    {frag_pct}%
+                    <span class="frag-bar-bg">
+                      <span class="frag-bar-fill" style="width:{frag_pct}%;background:{frag_col};display:block"></span>
+                    </span>
+                  </td>
+                </tr>"""
+
+            st.markdown(f"""
+            <div class="bench-wrap">
+              <table class="bench-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Market Cap</th>
+                    <th>Trailing P/E</th>
+                    <th>EV / EBITDA</th>
+                    <th>Net Cash / (Debt)</th>
+                    <th>Revenue YoY</th>
+                    <th>Beta</th>
+                    <th>Fragility</th>
+                  </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+              </table>
+            </div>""", unsafe_allow_html=True)
+
+        # ── Key Executives ──────────────────────────────────────────────────────
+        if executives:
+            sec("Key Executives")
+            exec_rows = ""
+            for e in executives[:10]:
+                name  = e.get("name","—")
+                title = e.get("title","—")
+                pay   = e.get("pay")
+                pay_str = fmt_num(pay,"$","",1,0) if pay else "—"
+                gender = (e.get("gender","") or "").capitalize() or "—"
+                born   = str(e.get("yearBorn","") or "—")
+                exec_rows += f"""
+                <tr>
+                  <td class="exec-name">{name}</td>
+                  <td class="exec-title">{title}</td>
+                  <td class="exec-pay">{pay_str}</td>
+                  <td>{gender}</td>
+                  <td>{born}</td>
+                </tr>"""
+            st.markdown(f"""
+            <div class="bench-wrap">
+              <table class="exec-table">
+                <thead>
+                  <tr>
+                    <th>Name</th><th>Title</th><th>Compensation</th><th>Gender</th><th>Year Born</th>
+                  </tr>
+                </thead>
+                <tbody>{exec_rows}</tbody>
+              </table>
+            </div>""", unsafe_allow_html=True)
 
         # ── Financials ────────────────────────────────────────────────────────
         sec("Financials — Historical (5 Years) + TTM")
