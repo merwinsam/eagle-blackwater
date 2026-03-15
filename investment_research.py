@@ -916,41 +916,30 @@ def render_investment_research():
         st.session_state.page = "eagle"
         st.rerun()
 
-    # ── Search bar — no dropdown, just type ticker and press Enter ──────────
+    # ── Search bar — enter ticker and press Search ───────────────────────────
     sec("Stock Search")
     sc1, sc2, _ = st.columns([2, 0.6, 2.4])
     with sc1:
-        query = st.text_input("", placeholder="Enter ticker symbol (e.g. AAPL, MSFT, RELIANCE.NS)…",
+        query = st.text_input("", placeholder="Enter ticker (e.g. AAPL, MSFT, RELIANCE.NS)…",
                               key="ir_query", label_visibility="collapsed")
     with sc2:
         search_btn = st.button("Search →", use_container_width=True, key="ir_search_btn")
 
-    # Resolve symbol — button click or Enter (query changed)
     if search_btn and query:
         new_sym = query.upper().strip()
-        if new_sym != st.session_state.get("ir_sym", ""):
-            st.session_state.ir_sym = new_sym
-            # Clear all cached data for new symbol
-            for k in [f"ir_chat_{new_sym}"]:
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.rerun()
-    elif query and not st.session_state.get("ir_sym"):
-        st.session_state.ir_sym = query.upper().strip()
+        st.session_state.ir_sym = new_sym
+        chat_key = f"ir_chat_{new_sym}"
+        if chat_key in st.session_state:
+            del st.session_state[chat_key]
+        st.rerun()
 
     sym = st.session_state.get("ir_sym", "").upper().strip()
-
-    # If query differs from loaded sym, user wants a new stock — update on Enter
-    if query and query.upper().strip() != sym and search_btn:
-        sym = query.upper().strip()
-        st.session_state.ir_sym = sym
-        st.rerun()
 
     if not sym:
         st.markdown("""
         <div style="text-align:center;padding:60px 0;font-family:'DM Mono',monospace;
                     font-size:.70rem;color:#2a2000;letter-spacing:.1em">
-          ENTER A STOCK SYMBOL OR COMPANY NAME TO BEGIN RESEARCH
+          ENTER A STOCK SYMBOL TO BEGIN RESEARCH
         </div>""", unsafe_allow_html=True)
         return
 
@@ -1363,13 +1352,16 @@ def render_investment_research():
         # ── DCF Valuation ─────────────────────────────────────────────────────
         if dcf:
             sec("DCF Valuation")
-            dcf_price = dcf.get("dcf", 0)
-            cur_price = dcf.get("Stock Price", profile.get("price", 0))
-            upside    = ((dcf_price - cur_price) / cur_price * 100) if cur_price else 0
+            try:
+                dcf_price = float(dcf.get("dcf", 0) or 0)
+                cur_price = float(dcf.get("Stock Price", 0) or dcf.get("price", 0) or profile.get("price", 0) or 0)
+                upside    = ((dcf_price - cur_price) / cur_price * 100) if cur_price else 0
+            except:
+                dcf_price, cur_price, upside = 0, 0, 0
             d1,d2,d3,d4 = st.columns(4)
-            kpi(d1, "gold",               "DCF Fair Value",  f"${float(dcf_price):,.2f}", "Intrinsic value")
-            kpi(d2, "",                   "Current Price",   f"${float(cur_price):,.2f}", "Market price")
-            kpi(d3, "green" if upside>0 else "red", "Upside / Downside", f"{upside:+.1f}%", "vs DCF")
+            kpi(d1, "gold",                          "DCF Fair Value",   f"${dcf_price:,.2f}" if dcf_price else "—", "Intrinsic value")
+            kpi(d2, "",                               "Current Price",    f"${cur_price:,.2f}" if cur_price else "—", "Market price")
+            kpi(d3, "green" if upside>0 else "red",  "Upside / Downside",f"{upside:+.1f}%" if cur_price else "—",    "vs DCF")
             kpi(d4, "",                   "Date",            dcf.get("date","—")[:10], "Estimate")
 
         # ── Analyst Estimates ─────────────────────────────────────────────────
