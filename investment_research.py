@@ -56,21 +56,21 @@ IR_CSS = """
 .ir-sep { width:1px; height:22px; background: #2a2000; }
 .ir-subtitle {
   font-family: 'DM Mono', monospace;
-  font-size: .58rem;
+  font-size: 1.0rem;
   color: #6a5a2a;
   letter-spacing: .16em;
   text-transform: uppercase;
 }
 .ir-ts {
   font-family: 'DM Mono', monospace;
-  font-size: .58rem;
+  font-size: 1.0rem;
   color: #4a3a1a;
   margin-left: auto;
 }
 
 .ir-sec {
   font-family: 'DM Mono', monospace;
-  font-size: .55rem;
+  font-size: .98rem;
   color: var(--gold);
   text-transform: uppercase;
   letter-spacing: .18em;
@@ -98,7 +98,7 @@ IR_CSS = """
 }
 .ir-kpi .lbl {
   font-family: 'DM Mono', monospace;
-  font-size: .50rem;
+  font-size: .65rem;
   color: var(--txt3);
   text-transform: uppercase;
   letter-spacing: .12em;
@@ -110,7 +110,7 @@ IR_CSS = """
   color: var(--txt);
   line-height: 1;
 }
-.ir-kpi .sub { font-size: .58rem; color: var(--txt2); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.ir-kpi .sub { font-size: 1.0rem; color: var(--txt2); margin-top: 2px; font-family: 'DM Mono', monospace; }
 .ir-kpi.green { border-top-color: var(--green); }
 .ir-kpi.green .val { color: var(--green); }
 .ir-kpi.red   { border-top-color: var(--red); }
@@ -124,7 +124,7 @@ IR_CSS = """
   padding: 14px 16px;
   margin-bottom: 6px;
   font-family: 'DM Sans', sans-serif;
-  font-size: .80rem;
+  font-size: .94rem;
   color: var(--txt2);
   line-height: 1.7;
 }
@@ -155,7 +155,7 @@ IR_CSS = """
   padding: 7px 12px;
   margin-bottom: 3px;
   font-family: 'DM Mono', monospace;
-  font-size: .68rem;
+  font-size: .96rem;
   color: var(--txt2);
   transition: border-left-color .12s;
 }
@@ -172,14 +172,14 @@ IR_CSS = """
 .news-item:hover { border-left-color: var(--gold); }
 .news-title {
   font-family: 'DM Sans', sans-serif;
-  font-size: .78rem;
+  font-size: .92rem;
   color: var(--txt);
   line-height: 1.4;
   margin-bottom: 3px;
 }
 .news-title a { color: var(--txt); text-decoration: none; }
 .news-title a:hover { color: var(--gold2); }
-.news-meta  { font-family: 'DM Mono', monospace; font-size: .55rem; color: var(--txt3); }
+.news-meta  { font-family: 'DM Mono', monospace; font-size: .98rem; color: var(--txt3); }
 
 .chat-wrap {
   background: var(--bg1);
@@ -191,7 +191,7 @@ IR_CSS = """
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-family: 'DM Mono', monospace;
-  font-size: .56rem;
+  font-size: .98rem;
   color: var(--gold);
   text-transform: uppercase;
   letter-spacing: .14em;
@@ -203,7 +203,7 @@ IR_CSS = """
   padding: 8px 12px;
   margin: 6px 0;
   font-family: 'DM Sans', sans-serif;
-  font-size: .76rem;
+  font-size: 1.04rem;
   color: var(--gold2);
 }
 .chat-bubble-a {
@@ -213,7 +213,7 @@ IR_CSS = """
   padding: 8px 12px;
   margin: 6px 0;
   font-family: 'DM Sans', sans-serif;
-  font-size: .76rem;
+  font-size: 1.04rem;
   color: var(--txt2);
   line-height: 1.65;
 }
@@ -233,7 +233,7 @@ IR_CSS = """
 .hint-row {
   padding: 7px 12px;
   font-family: 'DM Mono', monospace;
-  font-size: .70rem;
+  font-size: .98rem;
   color: var(--txt2);
   cursor: pointer;
   border-bottom: 1px solid #0d0f12;
@@ -243,7 +243,7 @@ IR_CSS = """
 }
 .hint-row:hover { background: rgba(201,168,76,.06); color: var(--gold2); }
 .hint-ticker { color: var(--gold2); font-weight: 500; min-width: 60px; }
-.hint-exch   { color: var(--txt3); font-size: .60rem; min-width: 50px; }
+.hint-exch   { color: var(--txt3); font-size: 1.02rem; min-width: 50px; }
 
 /* Peer benchmarking table */
 .bench-wrap {
@@ -256,12 +256,12 @@ IR_CSS = """
   width: 100%;
   border-collapse: collapse;
   font-family: 'DM Mono', monospace;
-  font-size: .68rem;
+  font-size: .96rem;
 }
 .bench-table th {
   background: #0a0c0f;
   color: #4a5568;
-  font-size: .54rem;
+  font-size: .96rem;
   text-transform: uppercase;
   letter-spacing: .12em;
   padding: 10px 14px;
@@ -278,8 +278,8 @@ IR_CSS = """
 }
 .bench-table tr:last-child td { border-bottom: none; }
 .bench-table tr:hover td { background: rgba(201,168,76,0.03); }
-.bench-ticker { color: var(--gold2); font-weight: 500; font-size: .72rem; }
-.bench-name   { color: #4a5568; font-size: .58rem; margin-top: 2px; }
+.bench-ticker { color: var(--gold2); font-weight: 500; font-size: 1.0rem; }
+.bench-name   { color: #4a5568; font-size: 1.0rem; margin-top: 2px; }
 .bench-up   { color: #2ecc71; }
 .bench-down { color: #e74c3c; }
 .bench-neu  { color: #8a96a8; }
@@ -304,13 +304,13 @@ IR_CSS = """
   width: 100%;
   border-collapse: collapse;
   font-family: 'DM Sans', sans-serif;
-  font-size: .76rem;
+  font-size: 1.04rem;
 }
 .exec-table th {
   background: #0a0c0f;
   color: #4a5568;
   font-family: 'DM Mono', monospace;
-  font-size: .52rem;
+  font-size: .66rem;
   text-transform: uppercase;
   letter-spacing: .12em;
   padding: 8px 14px;
@@ -325,8 +325,8 @@ IR_CSS = """
 .exec-table tr:last-child td { border-bottom: none; }
 .exec-table tr:hover td { background: rgba(201,168,76,0.03); }
 .exec-name  { color: #e8ecf0; font-weight: 500; }
-.exec-title { color: #6a7a8a; font-size: .72rem; }
-.exec-pay   { color: var(--gold2); font-family: 'DM Mono', monospace; font-size: .68rem; }
+.exec-title { color: #6a7a8a; font-size: 1.0rem; }
+.exec-pay   { color: var(--gold2); font-family: 'DM Mono', monospace; font-size: .96rem; }
 </style>
 """
 
@@ -656,11 +656,12 @@ def weinstein_analysis(df: pd.DataFrame) -> dict:
 # CHART BUILDER
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_price_chart(df: pd.DataFrame, sym: str, stage_data: dict, show_stage: bool) -> go.Figure:
-    df2 = df.tail(504).copy()   # 2 years
+def build_price_chart(df: pd.DataFrame, full_df: pd.DataFrame, sym: str, stage_data: dict, show_stage: bool) -> go.Figure:
+    # df = already sliced by timeframe; full_df = full history for MA calculation
+    df2   = df.copy()
     dates = df2["date"]
     closes= df2["close"] if "close" in df2.columns else df2.get("adjClose", df2.iloc[:,0])
-    vols  = df2.get("volume", pd.Series([0]*len(df2)))
+    vols  = df2["volume"] if "volume" in df2.columns else pd.Series([0]*len(df2))
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.75, 0.25],
@@ -682,8 +683,14 @@ def build_price_chart(df: pd.DataFrame, sym: str, stage_data: dict, show_stage: 
     # ── Stage analysis overlays ───────────────────────────────────────────────
     if show_stage and stage_data.get("stage", 0) > 0:
         n = len(df2)
-        ma30_full = pd.Series(df.tail(504 + 150)["close"].values).rolling(150).mean().values[-n:]
-        ma10_full = pd.Series(df.tail(504 + 50)["close"].values).rolling(50).mean().values[-n:]
+        close_col = "close" if "close" in full_df.columns else "adjClose"
+        ma30_series = pd.Series(full_df[close_col].values).rolling(150).mean()
+        ma10_series = pd.Series(full_df[close_col].values).rolling(50).mean()
+        # Align to the sliced date range
+        full_dates = full_df["date"].values
+        mask = pd.Series(full_dates).isin(df2["date"].values)
+        ma30_full = ma30_series[mask.values].values[-n:] if mask.sum() >= n else ma30_series.values[-n:]
+        ma10_full = ma10_series[mask.values].values[-n:] if mask.sum() >= n else ma10_series.values[-n:]
 
         fig.add_trace(go.Scatter(
             x=dates, y=ma30_full, name="30-Week MA",
@@ -883,11 +890,11 @@ def sec(label):
 
 def fin_row(label, *vals):
     cols = st.columns([2] + [1]*len(vals))
-    cols[0].markdown(f'<span style="font-family:\'DM Mono\',monospace;font-size:.70rem;color:#4a5568">{label}</span>',
+    cols[0].markdown(f'<span style="font-family:\'DM Mono\',monospace;font-size:1.02rem;color:#4a5568">{label}</span>',
                      unsafe_allow_html=True)
     for c, v in zip(cols[1:], vals):
         color = "#2ecc71" if isinstance(v, (int,float)) and v > 0 else "#e74c3c" if isinstance(v,(int,float)) and v < 0 else "#8a96a8"
-        c.markdown(f'<span style="font-family:\'DM Mono\',monospace;font-size:.70rem;color:{color}">{v}</span>',
+        c.markdown(f'<span style="font-family:\'DM Mono\',monospace;font-size:1.02rem;color:{color}">{v}</span>',
                    unsafe_allow_html=True)
 
 
@@ -905,7 +912,7 @@ def render_investment_research():
       <div class="ir-sep"></div>
       <span class="ir-subtitle">Investment Research</span>
       <div class="ir-sep"></div>
-      <span style="font-family:'DM Mono',monospace;font-size:.50rem;color:#4a3a1a;
+      <span style="font-family:'DM Mono',monospace;font-size:.96rem;color:#4a3a1a;
                    border:1px solid #2a1800;padding:2px 8px">POWERED BY FMP</span>
       <span class="ir-ts">{ts}</span>
     </div>
@@ -938,7 +945,7 @@ def render_investment_research():
     if not sym:
         st.markdown("""
         <div style="text-align:center;padding:60px 0;font-family:'DM Mono',monospace;
-                    font-size:.70rem;color:#2a2000;letter-spacing:.1em">
+                    font-size:1.02rem;color:#2a2000;letter-spacing:.1em">
           ENTER A STOCK SYMBOL TO BEGIN RESEARCH
         </div>""", unsafe_allow_html=True)
         return
@@ -1034,7 +1041,7 @@ def render_investment_research():
                      f'font-family:Bebas Neue;font-size:1.4rem;color:#c9a84c">{sym[:2]}</div>')
 
         desc_html = (f'<div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1500;'
-                     f'font-family:DM Sans,sans-serif;font-size:.78rem;color:#6a7a8a;line-height:1.75">'
+                     f'font-family:DM Sans,sans-serif;font-size:.94rem;color:#6a7a8a;line-height:1.75">'
                      f'{description}</div>') if description else ""
 
         web_display = website.replace("https://","").replace("http://","").rstrip("/") if website else "—"
@@ -1050,8 +1057,8 @@ def render_investment_research():
             ("Website",     web_link),
         ]
         info_grid = "".join(
-            f'<span style="font-family:DM Mono,monospace;font-size:.58rem;color:#4a5568">{k}</span>'
-            f'<span style="font-family:DM Mono,monospace;font-size:.58rem;color:#e8ecf0">{v}</span>'
+            f'<span style="font-family:DM Mono,monospace;font-size:1.04rem;color:#4a5568">{k}</span>'
+            f'<span style="font-family:DM Mono,monospace;font-size:1.04rem;color:#e8ecf0">{v}</span>'
             for k, v in info_rows
         )
 
@@ -1064,9 +1071,9 @@ def render_investment_research():
               <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
                 <span style="font-family:'Bebas Neue',sans-serif;font-size:1.9rem;
                              color:#e8c97e;letter-spacing:.07em;line-height:1">{name}</span>
-                <span style="font-family:'DM Mono',monospace;font-size:.62rem;color:#4a3a1a">{sym}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:.92rem;color:#4a3a1a">{sym}</span>
               </div>
-              <div style="font-family:'DM Mono',monospace;font-size:.58rem;color:#3a2a10;
+              <div style="font-family:'DM Mono',monospace;font-size:1.04rem;color:#3a2a10;
                           letter-spacing:.10em;margin-top:4px">
                 {exchange} &nbsp;·&nbsp; {sector} &nbsp;·&nbsp; {industry} &nbsp;·&nbsp; {country}
               </div>
@@ -1074,7 +1081,7 @@ def render_investment_research():
                 <div>
                   <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;
                                color:#e8ecf0;line-height:1">{currency} {price:,.2f}</div>
-                  <div style="font-family:'DM Mono',monospace;font-size:.68rem;
+                  <div style="font-family:'DM Mono',monospace;font-size:1.0rem;
                                color:{chg_color};margin-top:3px">
                     {chg_arrow} {abs(chg):.2f} &nbsp;({abs(chg_pct):.2f}%)
                   </div>
@@ -1101,11 +1108,37 @@ def render_investment_research():
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
         # ── Price chart ───────────────────────────────────────────────────────
-        sec("Price Chart · 2 Years")
-        show_stage = st.toggle("📐 Stage Analysis (Weinstein)", value=False, key="ir_stage")
+        sec("Price Chart")
 
+        # Timeframe + stage toggle row
+        tf_col, stage_col = st.columns([3, 1])
+        with tf_col:
+            tf_options = ["1M","3M","6M","YTD","1Y","2Y","3Y","5Y"]
+            tf_labels  = {"1M":"1 Month","3M":"3 Months","6M":"6 Months","YTD":"Year to Date",
+                          "1Y":"1 Year","2Y":"2 Years","3Y":"3 Years","5Y":"5 Years"}
+            tf = st.radio("", tf_options, index=4, horizontal=True, key="ir_tf",
+                          format_func=lambda x: tf_labels[x], label_visibility="collapsed")
+        with stage_col:
+            show_stage = st.toggle("📐 Stage Analysis", value=False, key="ir_stage")
+
+        # Slice df by timeframe
         if not price_df.empty:
-            fig = build_price_chart(price_df, sym, stage_data, show_stage)
+            today = pd.Timestamp.today().normalize()
+            tf_map = {
+                "1M":  today - pd.DateOffset(months=1),
+                "3M":  today - pd.DateOffset(months=3),
+                "6M":  today - pd.DateOffset(months=6),
+                "YTD": pd.Timestamp(today.year, 1, 1),
+                "1Y":  today - pd.DateOffset(years=1),
+                "2Y":  today - pd.DateOffset(years=2),
+                "3Y":  today - pd.DateOffset(years=3),
+                "5Y":  today - pd.DateOffset(years=5),
+            }
+            cutoff  = tf_map.get(tf, tf_map["2Y"])
+            chart_df = price_df[price_df["date"] >= cutoff].copy()
+            if chart_df.empty:
+                chart_df = price_df.copy()
+            fig = build_price_chart(chart_df, price_df, sym, stage_data, show_stage)
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         # Stage analysis panel

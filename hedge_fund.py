@@ -44,9 +44,9 @@ HF_CSS = """
 .hf-wordmark { font-family:'IBM Plex Mono',monospace;font-weight:600;
   font-size:1rem;color:var(--hf-gold);letter-spacing:.12em;text-transform:uppercase; }
 .hf-sep { width:1px;height:20px;background:#2a1800; }
-.hf-subtitle { font-family:'IBM Plex Mono',monospace;font-size:.56rem;
+.hf-subtitle { font-family:'IBM Plex Mono',monospace;font-size:.88rem;
   color:#5a4a2a;letter-spacing:.18em;text-transform:uppercase; }
-.hf-ts { font-family:'IBM Plex Mono',monospace;font-size:.55rem;
+.hf-ts { font-family:'IBM Plex Mono',monospace;font-size:.86rem;
   color:#3a2a10;margin-left:auto; }
 
 /* Pipeline track */
@@ -71,7 +71,7 @@ HF_CSS = """
 .hf-node-icon.running { border-color:var(--hf-amber);animation:hf-pulse 1s ease-in-out infinite; }
 @keyframes hf-pulse { 0%,100%{opacity:1}50%{opacity:.5} }
 .hf-node-lbl {
-  font-family:'IBM Plex Mono',monospace;font-size:.50rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.66rem;
   color:var(--hf-txt2);text-transform:uppercase;letter-spacing:.10em;line-height:1.3;
 }
 .hf-arrow {
@@ -95,12 +95,12 @@ HF_CSS = """
 .hf-signal.quant { border-left-color:var(--hf-purple); }
 
 .hf-agent-name {
-  font-family:'IBM Plex Mono',monospace;font-size:.56rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.88rem;
   color:var(--hf-gold);text-transform:uppercase;letter-spacing:.14em;
   margin-bottom:5px;display:flex;align-items:center;gap:8px;
 }
 .hf-signal-body {
-  font-size:.80rem;color:var(--hf-txt2);line-height:1.65;
+  font-size:1.0rem;color:var(--hf-txt2);line-height:1.65;
 }
 .hf-signal-body b { color:var(--hf-txt); }
 
@@ -119,11 +119,11 @@ HF_CSS = """
 .hf-verdict-action.SELL { color:var(--hf-red);   }
 .hf-verdict-action.HOLD { color:var(--hf-amber); }
 .hf-verdict-sub {
-  font-family:'IBM Plex Mono',monospace;font-size:.62rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.94rem;
   color:var(--hf-txt2);letter-spacing:.10em;text-transform:uppercase;
 }
 .hf-verdict-reason {
-  font-family:'IBM Plex Sans',sans-serif;font-size:.82rem;
+  font-family:'IBM Plex Sans',sans-serif;font-size:1.0rem;
   color:var(--hf-txt2);line-height:1.7;margin-top:12px;
   border-top:1px solid var(--hf-border);padding-top:12px;
 }
@@ -149,7 +149,7 @@ HF_CSS = """
 .hf-kpi.red   { border-top-color:var(--hf-red); }
 .hf-kpi.blue  { border-top-color:var(--hf-blue); }
 .hf-kpi .lbl {
-  font-family:'IBM Plex Mono',monospace;font-size:.48rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.98rem;
   color:var(--hf-txt3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px;
 }
 .hf-kpi .val {
@@ -163,7 +163,7 @@ HF_CSS = """
 
 /* Log */
 .hf-log {
-  font-family:'IBM Plex Mono',monospace;font-size:.60rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.92rem;
   color:var(--hf-txt3);line-height:1.8;
   background:var(--hf-bg1);border:1px solid var(--hf-border);
   padding:10px 14px;max-height:160px;overflow-y:auto;
@@ -549,10 +549,10 @@ def render_agent_card(icon, name, result, card_cls="done"):
     <div class="hf-signal {card_cls}">
       <div class="hf-agent-name">
         {icon} {name}
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:.94rem;
                      color:{sc};font-weight:600">{sig}</span>
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:{cc}">{conf}%</span>
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:.54rem;
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:.90rem;color:{cc}">{conf}%</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:.86rem;
                      color:#2a3540">{extras}</span>
       </div>
       <div class="hf-signal-body">{summary}</div>
@@ -572,7 +572,7 @@ def render_hedge_fund():
       <div class="hf-sep"></div>
       <span class="hf-subtitle">AI Hedge Fund</span>
       <div class="hf-sep"></div>
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:.50rem;color:#3a2a10;
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:#3a2a10;
                    border:1px solid #2a1800;padding:2px 8px">6-AGENT PIPELINE</span>
       <span class="hf-ts">{ts}</span>
     </div>
@@ -584,7 +584,7 @@ def render_hedge_fund():
         st.rerun()
 
     # ── Ticker input ──────────────────────────────────────────────────────────
-    st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.56rem;'
+    st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.88rem;'
                 'color:#c9a84c;text-transform:uppercase;letter-spacing:.18em;'
                 'padding:10px 0 6px;border-bottom:1px solid #1a1f28;margin-bottom:8px">'
                 '▸ Target Security</div>', unsafe_allow_html=True)
@@ -641,7 +641,7 @@ def render_hedge_fund():
     if not result:
         st.markdown("""
         <div style="text-align:center;padding:50px 0;font-family:'IBM Plex Mono',monospace;
-                    font-size:.65rem;color:#1a2530;letter-spacing:.12em">
+                    font-size:.98rem;color:#1a2530;letter-spacing:.12em">
           ENTER A TICKER AND PRESS ▶ RUN TO INITIATE THE PIPELINE
         </div>""", unsafe_allow_html=True)
         return
@@ -680,7 +680,7 @@ def render_hedge_fund():
         # Verdict card
         st.markdown(f"""
         <div class="hf-verdict">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:.84rem;
                       color:#5a4a2a;letter-spacing:.18em;text-transform:uppercase;
                       margin-bottom:10px">Portfolio Manager · Final Decision</div>
           <div class="hf-verdict-action {action}">{action}</div>
@@ -700,7 +700,7 @@ def render_hedge_fund():
         if stop or tgt:
             st.markdown(f"""
             <div style="background:#0a0c0f;border:1px solid #1a1f28;padding:12px 14px;
-                        font-family:'IBM Plex Sans',sans-serif;font-size:.76rem;color:#6a7a8a">
+                        font-family:'IBM Plex Sans',sans-serif;font-size:.92rem;color:#6a7a8a">
               {"<div style='margin-bottom:6px'><b style='color:#e74c3c'>⚠ Stop Loss:</b> "+stop+"</div>" if stop else ""}
               {"<div><b style='color:#2ecc71'>🎯 Target:</b> "+tgt+"</div>" if tgt else ""}
             </div>""", unsafe_allow_html=True)
@@ -713,7 +713,7 @@ def render_hedge_fund():
             s = result.get(ag,{}).get("signal") or result.get(ag,{}).get("risk_signal","HOLD")
             votes[s.upper()] = votes.get(s.upper(),0) + 1
         total = sum(votes.values()) or 1
-        st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.52rem;'
+        st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.84rem;'
                     'color:#5a4a2a;letter-spacing:.16em;text-transform:uppercase;'
                     'margin-bottom:6px">Agent Vote Tally</div>', unsafe_allow_html=True)
         for v, n in votes.items():
@@ -721,9 +721,9 @@ def render_hedge_fund():
             pct= int(n/total*100)
             st.markdown(f"""
             <div style="margin-bottom:4px">
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:.94rem;
                            color:{vc};min-width:40px;display:inline-block">{v}</span>
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:.90rem;
                            color:#2a3540">{n} agent{'s' if n!=1 else ''}</span>
               <div style="background:#0a0c0f;height:4px;border-radius:1px;margin-top:2px">
                 <div style="width:{pct}%;height:4px;background:{vc};border-radius:1px"></div>
@@ -731,7 +731,7 @@ def render_hedge_fund():
             </div>""", unsafe_allow_html=True)
 
     with right_col:
-        st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.52rem;'
+        st.markdown('<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.84rem;'
                     'color:#5a4a2a;letter-spacing:.16em;text-transform:uppercase;'
                     'padding-bottom:6px;border-bottom:1px solid #1a1f28;margin-bottom:8px">'
                     'Agent Signal Chain</div>', unsafe_allow_html=True)
